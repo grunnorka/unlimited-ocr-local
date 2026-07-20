@@ -1,0 +1,56 @@
+services:
+  unlimited-ocr:
+    image: vllm/vllm-openai:unlimited-ocr
+    container_name: unlimited-ocr
+    ports:
+      - "8000:8000"
+    ipc: host
+    gpus: all
+    environment:
+      # Optional: set HF_TOKEN if Hugging Face rate-limits anonymous downloads
+      HF_TOKEN: ${HF_TOKEN:-}
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+      - ./inputs:/inputs:ro
+      - ./outputs:/outputs
+    command:
+      - baidu/Unlimited-OCR
+      - --trust-remote-code
+      - --logits_processors
+      - vllm.model_executor.models.unlimited_ocr:NGramPerReqLogitsProcessor
+      - --no-enable-prefix-caching
+      - --mm-processor-cache-gb
+      - "0"
+      # Desktop + display take some VRAM; default 0.92 fails on 16 GB cards
+      - --gpu-memory-utilization
+      - "0.85"
+      - --max-model-len
+      - "16384"
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+    restart: unless-stopped
+
+  ui:
+    build: ./ui
+    container_name: unlimited-ocr-ui
+    ports:
+      - "7860:7860"
+    environment:
+      OCR_API_BASE: http://unlimited-ocr:8000/v1
+      OCR_MODEL: baidu/Unlimited-OCR
+    depends_on:
+      unlimited-ocr:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  huggingface-cache:
