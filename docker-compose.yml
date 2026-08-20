@@ -1,11 +1,18 @@
 services:
   unlimited-ocr:
-    image: vllm/vllm-openai:unlimited-ocr
+    image: docker.io/vllm/vllm-openai:unlimited-ocr
     container_name: unlimited-ocr
     ports:
       - "8000:8000"
     ipc: host
-    gpus: all
+    # podman-compose ignores shorthand `gpus: all`; use deploy.devices (CDI)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       # Optional: set HF_TOKEN if Hugging Face rate-limits anonymous downloads
       HF_TOKEN: ${HF_TOKEN:-}
@@ -22,7 +29,7 @@ services:
       - --no-enable-prefix-caching
       - --mm-processor-cache-gb
       - "0"
-      # Desktop + display take some VRAM; default 0.92 fails on 16 GB cards
+      # RTX 5080 16 GB + desktop (~2 GB): 0.92 OOMs; do not raise these.
       - --gpu-memory-utilization
       - "0.85"
       - --max-model-len
@@ -44,9 +51,21 @@ services:
     container_name: unlimited-ocr-ui
     ports:
       - "7860:7860"
+    # CDI GPU so nvidia-smi works for /api/gpu (UI image has no driver libs otherwise)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       OCR_API_BASE: http://unlimited-ocr:8000/v1
       OCR_MODEL: baidu/Unlimited-OCR
+      # UI token policy for RTX 5080 16 GB (never request max_tokens == max-model-len)
+      OCR_MAX_MODEL_LEN: "16384"
+      OCR_RESERVED_INPUT_TOKENS: "4096"
+      OCR_MAX_TOKENS: "8192"
     depends_on:
       unlimited-ocr:
         condition: service_healthy
