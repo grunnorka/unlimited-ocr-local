@@ -258,6 +258,51 @@
       color: var(--text-muted); line-height: 1.5;
     }
 
+    /* ── Resume / checkpoint banner ── */
+    .resume-bar {
+      display: none;
+      background: linear-gradient(90deg, rgba(0,212,170,0.08), rgba(74,158,255,0.06));
+      border-bottom: 1px solid var(--border-soft);
+      padding: 10px 20px;
+      flex-shrink: 0;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .resume-bar.visible { display: flex; }
+    .resume-label {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      letter-spacing: 0.08em; color: var(--teal); white-space: nowrap;
+    }
+    .resume-text {
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--text-secondary); flex: 1; min-width: 180px; line-height: 1.4;
+    }
+    .resume-text strong { color: var(--text-primary); font-weight: 500; }
+    .resume-hint {
+      width: 100%;
+      font-family: var(--font-mono); font-size: 10px;
+      color: var(--accent); line-height: 1.4;
+    }
+    .resume-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .btn-resume {
+      background: var(--teal); color: #000;
+      box-shadow: 0 0 12px var(--teal-glow);
+    }
+    .btn-resume:hover:not(:disabled) { background: #00eebc; }
+    .btn-resume:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-discard {
+      background: var(--bg-surface); color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-discard:hover { color: var(--red); border-color: var(--red); }
+    .btn-ckpt {
+      background: var(--bg-surface); color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ckpt:hover:not(:disabled) { color: var(--blue); border-color: var(--blue); }
+    .btn-ckpt:disabled { opacity: 0.4; cursor: not-allowed; }
+
     /* ── Panels ── */
     .panels {
       flex: 1;
@@ -298,26 +343,191 @@
     .drop-formats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
     .format-chip { font-family: var(--font-mono); font-size: 9px; padding: 2px 8px; border-radius: 3px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text-muted); }
 
-    #image-preview { width: 100%; height: 100%; object-fit: contain; background: #000; display: none; }
+    /* ── Live scan preview (INPUT) ── */
+    .scan-preview {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      background: #12151c;
+      position: relative;
+    }
+    .scan-preview.visible { display: flex; }
+
+    .scan-stage {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 12px;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(0,212,170,0.04), transparent 55%),
+        #0d1016;
+    }
+
+    .scan-frame {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #000;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.45);
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .scan-frame.scanning {
+      border-color: var(--teal);
+      box-shadow:
+        0 0 0 1px rgba(0,212,170,0.35),
+        0 0 22px rgba(0,212,170,0.18),
+        0 2px 14px rgba(0,0,0,0.45);
+      animation: scan-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes scan-pulse {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(0,212,170,0.35), 0 0 18px rgba(0,212,170,0.14), 0 2px 14px rgba(0,0,0,0.45); }
+      50% { box-shadow: 0 0 0 1px rgba(0,212,170,0.55), 0 0 28px rgba(0,212,170,0.28), 0 2px 14px rgba(0,0,0,0.45); }
+    }
+
+    #image-preview {
+      display: none;
+      max-width: 100%;
+      max-height: min(70vh, 100%);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      vertical-align: top;
+      background: #000;
+    }
     #image-preview.visible { display: block; }
 
     #pdf-canvas-wrap {
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      overflow-y: auto;
-      padding: 12px;
-      height: 100%;
-      background: #525659;
+      gap: 8px;
+      max-width: 100%;
     }
     #pdf-canvas-wrap.visible { display: flex; }
     #pdf-canvas-wrap canvas {
       display: block;
+      max-width: 100%;
+      height: auto;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    #pdf-canvas-wrap .pdf-preview-note {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 2px 0;
+    }
+
+    .bbox-overlay {
+      position: absolute;
+      inset: 0;
       width: 100%;
-      max-width: 680px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.6);
-      border-radius: 2px;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bbox-overlay rect {
+      fill: rgba(0, 212, 170, 0.08);
+      stroke: rgba(0, 212, 170, 0.85);
+      stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .scan-sweep {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      height: 18%;
+      top: -18%;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(0, 212, 170, 0.07) 40%,
+        rgba(0, 212, 170, 0.22) 50%,
+        rgba(0, 212, 170, 0.07) 60%,
+        transparent 100%
+      );
+      pointer-events: none;
+    }
+    .scan-frame.scanning .scan-sweep {
+      display: block;
+      animation: scan-sweep 2.4s ease-in-out infinite;
+    }
+    @keyframes scan-sweep {
+      0% { top: -18%; opacity: 0.4; }
+      15% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { top: 100%; opacity: 0.3; }
+    }
+
+    .scan-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 2;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 4px 9px;
+      border-radius: 4px;
+      background: rgba(10, 12, 16, 0.88);
+      border: 1px solid rgba(0, 212, 170, 0.45);
+      color: var(--teal);
+      pointer-events: none;
+      display: none;
+    }
+    .scan-badge.visible { display: inline-flex; align-items: center; gap: 6px; }
+    .scan-badge .scan-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+      animation: blink 0.9s step-end infinite;
+    }
+
+    .page-strip {
+      display: none;
+      flex-shrink: 0;
+      gap: 4px;
+      padding: 8px 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-top: 1px solid var(--border-soft);
+      background: var(--bg-surface);
+      scrollbar-width: thin;
+    }
+    .page-strip.visible { display: flex; }
+    .page-chip {
+      flex: 0 0 auto;
+      min-width: 28px;
+      height: 24px;
+      padding: 0 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-deep);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: default;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .page-chip.active {
+      border-color: var(--teal);
+      color: var(--teal);
+      background: rgba(0, 212, 170, 0.1);
+      box-shadow: 0 0 10px rgba(0, 212, 170, 0.15);
+    }
+    .page-chip.done {
+      border-color: var(--border);
+      color: var(--text-secondary);
     }
 
     /* ── Output / markdown ── */
@@ -438,9 +648,18 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         .MD
       </button>
-      <button class="btn btn-zip" id="zip-btn" onclick="exportZip()" disabled title="Download ZIP of individual .md files">
+      <button class="btn btn-zip" id="zip-btn" onclick="exportZip()" disabled title="Download ZIP of individual .md files (including partial)">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
         ZIP
+      </button>
+      <button class="btn btn-ckpt" id="ckpt-dl-btn" onclick="downloadCheckpoint()" disabled title="Download checkpoint JSON">
+        CKPT
+      </button>
+      <button class="btn btn-ckpt" id="ckpt-load-btn" onclick="document.getElementById('ckpt-input').click()" title="Load checkpoint JSON">
+        LOAD
+      </button>
+      <button class="btn btn-zip" id="zip-load-btn" onclick="document.getElementById('zip-input').click()" title="Load processed OCR ZIP (manifest + pages)">
+        LOAD ZIP
       </button>
       <button class="btn btn-start" id="start-btn" onclick="startOCR()" disabled>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -472,6 +691,18 @@
       <span class="meta-chip" id="page-info" style="display:none">PAGES <span id="page-count">1</span></span>
       <span class="meta-chip token-counter" id="token-display" style="display:none"><span id="char-count">0</span> chars</span>
     </div>
+  </div>
+
+  <!-- Resume unfinished job -->
+  <div class="resume-bar" id="resume-bar">
+    <span class="resume-label">CHECKPOINT</span>
+    <div class="resume-text" id="resume-text"></div>
+    <div class="resume-actions">
+      <button class="btn btn-resume" id="resume-btn" onclick="resumeFromBanner()">RESUME</button>
+      <button class="btn btn-zip" id="resume-zip-btn" onclick="exportZipFromCheckpoint()" title="Export partial ZIP of saved pages">PARTIAL ZIP</button>
+      <button class="btn btn-discard" id="discard-btn" onclick="discardCheckpoint()">DISCARD</button>
+    </div>
+    <div class="resume-hint" id="resume-hint" style="display:none"></div>
   </div>
 
   <!-- Analyze recommendations -->
@@ -509,6 +740,7 @@
           <span class="panel-label">FILES <span id="file-count-label" style="color:var(--text-muted);font-weight:400"></span></span>
           <div class="file-queue-actions">
             <button type="button" onclick="document.getElementById('file-input').click()" title="Add more files">+ ADD</button>
+            <button type="button" onclick="document.getElementById('zip-input').click()" title="Load processed OCR ZIP">ZIP</button>
             <button type="button" onclick="toggleAllFiles(true)" title="Include all">ALL</button>
             <button type="button" onclick="toggleAllFiles(false)" title="Exclude all">NONE</button>
           </div>
@@ -523,18 +755,29 @@
            ondrop="onDrop(event)">
         <div class="drop-icon">📄</div>
         <div class="drop-title">Drop documents here</div>
-        <p class="drop-hint">or click to browse · multi-select supported</p>
+        <p class="drop-hint">or click to browse · PDF/images or processed OCR ZIP</p>
         <div class="drop-formats">
           <span class="format-chip">PNG</span>
           <span class="format-chip">JPG</span>
           <span class="format-chip">WEBP</span>
           <span class="format-chip">PDF</span>
           <span class="format-chip">TIFF</span>
+          <span class="format-chip">ZIP</span>
         </div>
       </div>
 
-      <img id="image-preview" alt="Document preview" />
-      <div id="pdf-canvas-wrap"></div>
+      <div class="scan-preview" id="scan-preview">
+        <div class="scan-stage" id="scan-stage">
+          <div class="scan-frame" id="scan-frame">
+            <img id="image-preview" alt="Document preview" />
+            <div id="pdf-canvas-wrap"></div>
+            <svg class="bbox-overlay" id="bbox-overlay" aria-hidden="true"></svg>
+            <div class="scan-sweep" aria-hidden="true"></div>
+            <div class="scan-badge" id="scan-badge"><span class="scan-dot"></span><span id="scan-badge-text">SCANNING</span></div>
+          </div>
+        </div>
+        <div class="page-strip" id="page-strip" role="list" aria-label="Pages"></div>
+      </div>
 
       <div class="prompt-bar">
         <span class="prompt-label">PROMPT</span>
@@ -596,7 +839,9 @@
   </div>
 </div>
 
-<input type="file" id="file-input" style="display:none" accept="image/*,.pdf" multiple onchange="handleFileInput(event)" />
+<input type="file" id="file-input" style="display:none" accept="image/*,.pdf,.zip,application/zip" multiple onchange="handleFileInput(event)" />
+<input type="file" id="ckpt-input" style="display:none" accept="application/json,.json" onchange="handleCheckpointInput(event)" />
+<input type="file" id="zip-input" style="display:none" accept=".zip,application/zip,application/x-zip-compressed" onchange="handleZipInput(event)" />
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -607,6 +852,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let apiReady      = false;
+let _healthTimer  = null;
+/** Skip heavy PDF canvas preview above this size (OCR still page-at-a-time). */
+const PREVIEW_MAX_BYTES = 40 * 1024 * 1024;
+/** Soft warning toast for very large books. */
+const WARN_SIZE_BYTES = 80 * 1024 * 1024;
 let abortCtrl     = null;
 let currentMode   = 'long';
 let fileItems     = [];
@@ -631,6 +881,13 @@ let pageMarkdowns = [];
 let _fileIdSeq    = 0;
 let _gpuTimer     = null;
 
+/** @type {object|null} Active checkpoint job (persisted to IndexedDB). */
+let activeJob = null;
+/** @type {object|null} Unfinished job shown in the resume banner. */
+let pendingResumeJob = null;
+let _ckptSaveTimer = null;
+let _ckptSaveBusy = false;
+
 // Throttled paint state — unthrottled marked.parse of growing docs freezes the UI
 const PREVIEW_MIN_MS = 150;
 let _mdTimer = null;
@@ -640,8 +897,619 @@ let _rawTimer = null;
 let _rawPending = null; // { el, text }
 let _lastMdPaint = 0;
 
+/** Live scan preview + optional bbox overlay state. */
+let _scanActive = false;
+let _scanPage = 0;
+let _scanTotal = 0;
+let _bboxTimer = null;
+let _bboxPendingRaw = null;
+const BBOX_MIN_MS = 200;
+const DET_BOX_RE = /<\|det\|>([^<\s]+)\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]\s*<\|\/det\|>/g;
+/** Cap page-strip chips for huge books (still shows window around active). */
+const PAGE_STRIP_MAX = 120;
+
 if (window.marked) {
   marked.setOptions({ gfm: true, breaks: false });
+}
+
+// ── IndexedDB checkpoint store ────────────────────────────────────────────────
+const CKPT_DB = 'unlimited-ocr-checkpoints';
+const CKPT_STORE = 'jobs';
+const CKPT_VERSION = 1;
+
+function openCkptDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(CKPT_DB, CKPT_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(CKPT_STORE)) {
+        const store = db.createObjectStore(CKPT_STORE, { keyPath: 'id' });
+        store.createIndex('updatedAt', 'updatedAt', { unique: false });
+        store.createIndex('status', 'status', { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('IndexedDB open failed'));
+  });
+}
+
+async function idbPutJob(job) {
+  const db = await openCkptDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CKPT_STORE, 'readwrite');
+    tx.objectStore(CKPT_STORE).put(job);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbGetJob(id) {
+  const db = await openCkptDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CKPT_STORE, 'readonly');
+    const req = tx.objectStore(CKPT_STORE).get(id);
+    req.onsuccess = () => { db.close(); resolve(req.result || null); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function idbDeleteJob(id) {
+  const db = await openCkptDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CKPT_STORE, 'readwrite');
+    tx.objectStore(CKPT_STORE).delete(id);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function idbListJobs() {
+  const db = await openCkptDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CKPT_STORE, 'readonly');
+    const req = tx.objectStore(CKPT_STORE).getAll();
+    req.onsuccess = () => { db.close(); resolve(req.result || []); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+function newJobId() {
+  return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function fileFingerprint(file) {
+  return {
+    name: file.name,
+    size: file.size,
+    lastModified: file.lastModified || 0,
+  };
+}
+
+function fingerprintsMatch(a, b, loose = false) {
+  if (!a || !b) return false;
+  if (a.name !== b.name || a.size !== b.size) return false;
+  if (loose) return true;
+  return (a.lastModified || 0) === (b.lastModified || 0);
+}
+
+/** Match a local File to a queue item (ZIP imports match by basename only). */
+function fileMatchesItem(item, file, loose = true) {
+  if (!item || !file) return false;
+  const fp = fileFingerprint(file);
+  if (item.fromZip || item.fingerprint?.size == null || item.fingerprint?.size === 0) {
+    const a = (item.name || item.fingerprint?.name || '').toLowerCase();
+    const b = (file.name || '').toLowerCase();
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const strip = (n) => n.replace(/\.[^.]+$/, '');
+    return strip(a) === strip(b);
+  }
+  return fingerprintsMatch(
+    {
+      name: item.name,
+      size: item.file?.size ?? item.fingerprint?.size ?? 0,
+      lastModified: item.file?.lastModified ?? item.fingerprint?.lastModified ?? 0,
+    },
+    fp,
+    loose
+  );
+}
+
+function countSavedPages(job) {
+  if (!job?.files) return { saved: 0, total: 0 };
+  let saved = 0;
+  let total = 0;
+  for (const f of job.files) {
+    const pages = f.pages || (f.isPDF ? (f.pageMarkdowns?.length || 0) : 1);
+    total += pages || 0;
+    if (f.isPDF) {
+      saved += (f.pageMarkdowns || []).filter(md => md != null && md !== '').length;
+    } else if (f.markdown || (f.pageMarkdowns && f.pageMarkdowns[0])) {
+      saved += 1;
+    }
+  }
+  return { saved, total };
+}
+
+function jobProgressLabel(job) {
+  const { saved, total } = countSavedPages(job);
+  const names = (job.files || []).map(f => f.name).join(', ');
+  if (total > 0) return `${saved} / ${total} pages · ${names}`;
+  return `${saved} page(s) saved · ${names}`;
+}
+
+function isJobIncomplete(job) {
+  if (!job || job.status === 'done') return false;
+  const { saved, total } = countSavedPages(job);
+  if (total > 0) return saved < total;
+  return saved > 0 && job.status !== 'done';
+}
+
+function snapshotJobFromItems(status = 'running') {
+  const now = Date.now();
+  const files = fileItems.filter(f => f.included || (f.pageMarkdowns?.length || f.markdown)).map(item => ({
+    id: item.id,
+    name: item.name,
+    size: item.file?.size ?? item.fingerprint?.size ?? 0,
+    lastModified: item.file?.lastModified ?? item.fingerprint?.lastModified ?? 0,
+    isPDF: !!item.isPDF,
+    pages: item.pages,
+    status: item.status || 'ready',
+    settings: item.settings ? { ...item.settings } : null,
+    analysis: item.analysis || null,
+    pageMarkdowns: item.pageMarkdowns ? [...item.pageMarkdowns] : [],
+    pageRaws: item.pageRaws ? [...item.pageRaws] : [],
+    markdown: item.markdown || '',
+    rawText: item.rawText || '',
+    error: item.error || null,
+    fromZip: !!item.fromZip,
+  }));
+  const job = {
+    id: activeJob?.id || newJobId(),
+    version: 1,
+    createdAt: activeJob?.createdAt || now,
+    updatedAt: now,
+    status,
+    mode: currentMode,
+    prompt: document.getElementById('prompt-input')?.value || 'document parsing.',
+    ngramEnabled: document.getElementById('ngram-toggle')?.checked !== false,
+    settings: { ...settings },
+    files,
+    activeFileId: activeId,
+  };
+  activeJob = job;
+  return job;
+}
+
+async function saveCheckpoint(status) {
+  try {
+    const job = snapshotJobFromItems(status || activeJob?.status || 'running');
+    await idbPutJob(job);
+    document.getElementById('ckpt-dl-btn').disabled = false;
+    return job;
+  } catch (err) {
+    console.warn('Checkpoint save failed:', err);
+    showToast('Checkpoint save failed (storage full?)');
+    return null;
+  }
+}
+
+function scheduleCheckpoint(status) {
+  clearTimeout(_ckptSaveTimer);
+  _ckptSaveTimer = setTimeout(async () => {
+    if (_ckptSaveBusy) return;
+    _ckptSaveBusy = true;
+    try { await saveCheckpoint(status); }
+    finally { _ckptSaveBusy = false; }
+  }, 80);
+}
+
+async function saveCheckpointNow(status) {
+  clearTimeout(_ckptSaveTimer);
+  return saveCheckpoint(status);
+}
+
+function hideResumeBanner() {
+  document.getElementById('resume-bar').classList.remove('visible');
+  document.getElementById('resume-hint').style.display = 'none';
+  pendingResumeJob = null;
+}
+
+function showResumeBanner(job, opts = {}) {
+  pendingResumeJob = job;
+  const bar = document.getElementById('resume-bar');
+  const text = document.getElementById('resume-text');
+  const hint = document.getElementById('resume-hint');
+  const { saved, total } = countSavedPages(job);
+  const progress = total > 0
+    ? `page <strong>${saved}</strong> / <strong>${total}</strong>`
+    : `<strong>${saved}</strong> page(s) saved`;
+  const when = job.updatedAt ? new Date(job.updatedAt).toLocaleString() : '';
+  text.innerHTML = `Unfinished job · ${progress}${when ? ` · ${escapeHtml(when)}` : ''}`;
+  const missing = (job.files || []).filter(f => {
+    const local = fileItems.find(x => x.file && fileMatchesItem(
+      { name: f.name, fingerprint: { name: f.name, size: f.size, lastModified: f.lastModified }, fromZip: f.fromZip || (f.size == null || f.size === 0) },
+      x.file,
+      true
+    ));
+    return !local;
+  });
+  const incomplete = isJobIncomplete(job);
+  if (!incomplete) {
+    hint.style.display = 'none';
+    document.getElementById('resume-btn').disabled = true;
+    text.innerHTML = `Imported job · ${progress}${when ? ` · ${escapeHtml(when)}` : ''} · complete (browse / export)`;
+  } else if (missing.length || opts.needFiles) {
+    hint.style.display = 'block';
+    hint.textContent = `Re-select the PDF${missing.length > 1 ? 's' : ''} to resume: ${missing.map(f => f.name).join(', ') || 'matching file(s)'}`;
+    document.getElementById('resume-btn').disabled = true;
+  } else {
+    hint.style.display = 'none';
+    document.getElementById('resume-btn').disabled = false;
+  }
+  bar.classList.add('visible');
+  document.getElementById('ckpt-dl-btn').disabled = false;
+  syncExportButtons();
+}
+
+function refreshResumeBanner() {
+  if (!pendingResumeJob) return;
+  showResumeBanner(pendingResumeJob);
+}
+
+async function findLatestIncompleteJob() {
+  const jobs = await idbListJobs();
+  const incomplete = jobs
+    .filter(isJobIncomplete)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return incomplete[0] || null;
+}
+
+function hydrateFileItemsFromJob(job, attachFiles = true) {
+  fileItems = (job.files || []).map((f, idx) => {
+    const existing = attachFiles
+      ? fileItems.find(x => x.file && fileMatchesItem(
+          { name: f.name, fingerprint: { name: f.name, size: f.size, lastModified: f.lastModified }, fromZip: f.fromZip || !f.size },
+          x.file,
+          true
+        ))
+      : null;
+    const pages = f.pages || (f.isPDF ? (f.pageMarkdowns?.length || null) : 1);
+    const saved = f.isPDF
+      ? (f.pageMarkdowns || []).filter(md => md != null && md !== '').length
+      : (f.markdown || f.pageMarkdowns?.[0] ? 1 : 0);
+    const fullyDone = f.status === 'done' || (pages && saved >= pages) ||
+      (!f.isPDF && !!(f.markdown || f.pageMarkdowns?.[0]));
+    return {
+      id: f.id || `f${++_fileIdSeq}`,
+      file: existing?.file || null,
+      fingerprint: { name: f.name, size: f.size, lastModified: f.lastModified },
+      name: f.name,
+      isPDF: !!f.isPDF,
+      pages,
+      included: true,
+      status: fullyDone ? 'done' : (saved > 0 ? 'ready' : (f.status || 'ready')),
+      analysis: f.analysis || null,
+      settings: f.settings || null,
+      markdown: f.markdown || '',
+      pageMarkdowns: f.pageMarkdowns ? [...f.pageMarkdowns] : [],
+      pageRaws: f.pageRaws ? [...f.pageRaws] : [],
+      rawText: f.rawText || '',
+      error: f.error || null,
+      fromZip: !!f.fromZip,
+      _pdfDoc: null,
+      _pdfObjectUrl: null,
+    };
+  });
+  activeJob = job;
+  activeId = job.activeFileId && fileItems.some(f => f.id === job.activeFileId)
+    ? job.activeFileId
+    : fileItems[0]?.id || null;
+}
+
+function jobHasExportablePages(job) {
+  return (job?.files || []).some(f => f.markdown || (f.pageMarkdowns && f.pageMarkdowns.some(Boolean)));
+}
+
+function pagesDoneForItem(item) {
+  if (!item.isPDF) return item.markdown || item.pageMarkdowns?.[0] ? 1 : 0;
+  return (item.pageMarkdowns || []).filter(md => md != null && md !== '').length;
+}
+
+function nextIncompletePageIndex(item) {
+  if (!item.isPDF) return item.markdown || item.pageMarkdowns?.[0] ? -1 : 0;
+  const pages = item.pages || item.pageMarkdowns?.length || 0;
+  const arr = item.pageMarkdowns || [];
+  for (let i = 0; i < pages; i++) {
+    if (arr[i] == null || arr[i] === '') return i;
+  }
+  // If pages unknown, continue after last saved
+  if (!item.pages && arr.length) {
+    // find first hole or append
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] == null || arr[i] === '') return i;
+    }
+    return arr.length; // may still have more pages after explode/render
+  }
+  return -1;
+}
+
+async function releasePdfDoc(item) {
+  if (item?._pdfDoc) {
+    try { await item._pdfDoc.destroy(); } catch (_) { /* ignore */ }
+    item._pdfDoc = null;
+  }
+  if (item?._pdfObjectUrl) {
+    try { URL.revokeObjectURL(item._pdfObjectUrl); } catch (_) { /* ignore */ }
+    item._pdfObjectUrl = null;
+  }
+}
+
+async function getPdfDocForItem(item) {
+  if (item._pdfDoc) return item._pdfDoc;
+  if (!item.file) throw new Error('Re-select the PDF to resume');
+  // Prefer object URL over full ArrayBuffer — avoids a second multi-hundred-MB copy.
+  const url = URL.createObjectURL(item.file);
+  item._pdfObjectUrl = url;
+  try {
+    item._pdfDoc = await pdfjsLib.getDocument({ url }).promise;
+  } catch (err) {
+    try { URL.revokeObjectURL(url); } catch (_) { /* ignore */ }
+    item._pdfObjectUrl = null;
+    throw err;
+  }
+  return item._pdfDoc;
+}
+
+async function pdfPageToDataUrl(pdf, pageIndex) {
+  const page = await pdf.getPage(pageIndex + 1);
+  const scale = 200 / 72;
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  let dataUrl;
+  try {
+    dataUrl = canvas.toDataURL('image/png');
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+  return dataUrl;
+}
+
+// ── Live scan preview (page focus + optional det boxes) ───────────────────────
+function showScanPreviewShell() {
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('scan-preview').classList.add('visible');
+}
+
+function hideScanPreviewShell() {
+  document.getElementById('scan-preview').classList.remove('visible');
+  document.getElementById('scan-frame').classList.remove('scanning');
+  document.getElementById('image-preview').classList.remove('visible');
+  document.getElementById('image-preview').removeAttribute('src');
+  document.getElementById('pdf-canvas-wrap').classList.remove('visible');
+  document.getElementById('pdf-canvas-wrap').innerHTML = '';
+  clearBBoxes();
+  setScanBadge(null);
+  setPageStrip(0, 0, -1);
+  _scanActive = false;
+  _scanPage = 0;
+  _scanTotal = 0;
+}
+
+function setScanBadge(text, { scanning = false } = {}) {
+  const badge = document.getElementById('scan-badge');
+  const label = document.getElementById('scan-badge-text');
+  if (!badge || !label) return;
+  if (!text) {
+    badge.classList.remove('visible');
+    label.textContent = '';
+    return;
+  }
+  label.textContent = text;
+  badge.classList.add('visible');
+  const dot = badge.querySelector('.scan-dot');
+  if (dot) dot.style.display = scanning ? '' : 'none';
+}
+
+function setScanningVisual(on) {
+  _scanActive = !!on;
+  document.getElementById('scan-frame')?.classList.toggle('scanning', !!on);
+}
+
+function clearBBoxes() {
+  const svg = document.getElementById('bbox-overlay');
+  if (svg) svg.innerHTML = '';
+  _bboxPendingRaw = null;
+  if (_bboxTimer) { clearTimeout(_bboxTimer); _bboxTimer = null; }
+}
+
+function parseDetBoxes(raw) {
+  if (!raw) return [];
+  const boxes = [];
+  DET_BOX_RE.lastIndex = 0;
+  let m;
+  while ((m = DET_BOX_RE.exec(raw)) !== null) {
+    const x1 = +m[2], y1 = +m[3], x2 = +m[4], y2 = +m[5];
+    if (![x1, y1, x2, y2].every(Number.isFinite)) continue;
+    boxes.push({
+      cat: m[1],
+      x1: Math.min(x1, x2),
+      y1: Math.min(y1, y2),
+      x2: Math.max(x1, x2),
+      y2: Math.max(y1, y2),
+    });
+  }
+  return boxes;
+}
+
+function paintBBoxes(raw) {
+  const svg = document.getElementById('bbox-overlay');
+  if (!svg) return;
+  const boxes = parseDetBoxes(raw);
+  svg.setAttribute('viewBox', '0 0 999 999');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  if (!boxes.length) {
+    svg.innerHTML = '';
+    return;
+  }
+  svg.innerHTML = boxes.map(b => {
+    const w = Math.max(1, b.x2 - b.x1);
+    const h = Math.max(1, b.y2 - b.y1);
+    return `<rect x="${b.x1}" y="${b.y1}" width="${w}" height="${h}" />`;
+  }).join('');
+}
+
+function scheduleBBoxUpdate(raw) {
+  _bboxPendingRaw = raw;
+  if (_bboxTimer) return;
+  _bboxTimer = setTimeout(() => {
+    _bboxTimer = null;
+    const pending = _bboxPendingRaw;
+    _bboxPendingRaw = null;
+    if (pending != null && _scanActive) paintBBoxes(pending);
+  }, BBOX_MIN_MS);
+}
+
+function flushBBoxes() {
+  if (_bboxTimer) { clearTimeout(_bboxTimer); _bboxTimer = null; }
+  if (_bboxPendingRaw != null) {
+    paintBBoxes(_bboxPendingRaw);
+    _bboxPendingRaw = null;
+  }
+}
+
+function setPageStrip(total, current, doneThrough = -1) {
+  const strip = document.getElementById('page-strip');
+  if (!strip) return;
+  if (!total || total < 2) {
+    strip.classList.remove('visible');
+    strip.innerHTML = '';
+    return;
+  }
+  strip.classList.add('visible');
+
+  // For huge books, only render a window around the active page.
+  let from = 0;
+  let to = total;
+  if (total > PAGE_STRIP_MAX) {
+    const half = Math.floor(PAGE_STRIP_MAX / 2);
+    from = Math.max(0, current - half);
+    to = Math.min(total, from + PAGE_STRIP_MAX);
+    from = Math.max(0, to - PAGE_STRIP_MAX);
+  }
+
+  const chips = [];
+  if (from > 0) {
+    chips.push(`<span class="page-chip" title="Earlier pages">…</span>`);
+  }
+  for (let i = from; i < to; i++) {
+    const cls = [
+      'page-chip',
+      i === current ? 'active' : '',
+      (doneThrough >= i || (i < current && doneThrough < 0)) ? 'done' : '',
+    ].filter(Boolean).join(' ');
+    chips.push(`<span class="${cls}" data-page="${i}" role="listitem">${i + 1}</span>`);
+  }
+  if (to < total) {
+    chips.push(`<span class="page-chip" title="Later pages">…${total}</span>`);
+  }
+  strip.innerHTML = chips.join('');
+
+  strip.querySelectorAll('.page-chip[data-page]').forEach(chip => {
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const page = Number(chip.dataset.page);
+      if (!Number.isFinite(page)) return;
+      previewPageMarkdown(page);
+    });
+  });
+
+  const active = strip.querySelector('.page-chip.active');
+  if (active) {
+    active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function previewPageMarkdown(pageIndex) {
+  const item = activeItem();
+  if (!item) return;
+  const pages = item.pages || item.pageMarkdowns?.length || 0;
+  if (pageIndex < 0 || pageIndex >= pages) return;
+  const md = item.pageMarkdowns?.[pageIndex];
+  if (md == null || md === '') {
+    showToast(`Page ${pageIndex + 1} not OCR'd yet`);
+    return;
+  }
+  document.getElementById('output-placeholder').style.display = 'none';
+  document.getElementById('md-placeholder').style.display = 'none';
+  clearMdDom();
+  renderMarkdown(md);
+  lastMarkdown = item.markdown || md;
+  const doneThrough = pagesDoneForItem(item) >= pages ? pages - 1 : pageIndex;
+  setPageStrip(pages, pageIndex, doneThrough);
+  setScanBadge(`PAGE ${pageIndex + 1} / ${pages}`, { scanning: false });
+  const raw = item.pageRaws?.[pageIndex];
+  if (raw) {
+    document.getElementById('ocr-text').textContent = raw;
+    document.getElementById('output-tag').textContent = 'PAGE';
+  }
+}
+
+function showLiveImageScan(src, { page = 0, total = 1, label = null } = {}) {
+  showScanPreviewShell();
+  const img = document.getElementById('image-preview');
+  const wrap = document.getElementById('pdf-canvas-wrap');
+  wrap.classList.remove('visible');
+  wrap.innerHTML = '';
+  img.classList.add('visible');
+  if (src && img.src !== src) img.src = src;
+  else if (src) img.src = src;
+
+  _scanPage = page;
+  _scanTotal = total;
+  const badge = label || (total > 1
+    ? `PAGE ${page + 1} / ${total}`
+    : 'SCANNING');
+  setScanBadge(badge, { scanning: true });
+  setScanningVisual(true);
+  setPageStrip(total, page, page - 1);
+  clearBBoxes();
+}
+
+function showLivePdfPage(dataUrl, pageIndex, total) {
+  showLiveImageScan(dataUrl, {
+    page: pageIndex,
+    total,
+    label: `PAGE ${pageIndex + 1} / ${total}`,
+  });
+}
+
+function markScanPageDone(pageIndex, total) {
+  setPageStrip(total, pageIndex, pageIndex);
+  flushBBoxes();
+}
+
+function endScanningVisual({ keepPreview = true } = {}) {
+  setScanningVisual(false);
+  clearBBoxes();
+  const badge = document.getElementById('scan-badge');
+  if (_scanTotal > 1) {
+    setScanBadge(`PAGE ${_scanPage + 1} / ${_scanTotal}`, { scanning: false });
+  } else if (badge) {
+    setScanBadge(keepPreview ? 'DONE' : null, { scanning: false });
+    if (keepPreview) {
+      setTimeout(() => {
+        if (!_scanActive) setScanBadge(null);
+      }, 1800);
+    }
+  }
+  if (!keepPreview) hideScanPreviewShell();
 }
 
 // ── Client-side grounding → markdown (mirrors server) ─────────────────────────
@@ -726,9 +1594,11 @@ function clearMdDom() {
 function cancelPreviewTimers() {
   if (_mdTimer) { clearTimeout(_mdTimer); _mdTimer = null; }
   if (_rawTimer) { clearTimeout(_rawTimer); _rawTimer = null; }
+  if (_bboxTimer) { clearTimeout(_bboxTimer); _bboxTimer = null; }
   _mdPendingHtml = null;
   _mdPendingLive = null;
   _rawPending = null;
+  _bboxPendingRaw = null;
 }
 
 /** Paint only the live (current page) region — O(page), not O(document). */
@@ -905,23 +1775,55 @@ function scheduleGpuPoll() {
   }, delay);
 }
 
-async function boot() {
+async function pollHealth() {
   try {
     const res = await fetch('/api/health');
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || 'vLLM not ready');
+    const wasReady = apiReady;
     apiReady = true;
-    setStatus('idle', 'READY · local vLLM connected');
+    if (!wasReady) {
+      setStatus('idle', 'READY · local vLLM connected');
+      syncExportButtons();
+    }
+    return true;
   } catch (e) {
+    const wasReady = apiReady;
     apiReady = false;
     setStatus('error', 'CONNECTION ERROR · ' + e.message);
+    if (wasReady) syncExportButtons();
+    return false;
   }
+}
+
+function scheduleHealthPoll() {
+  if (_healthTimer) clearTimeout(_healthTimer);
+  const delay = apiReady ? (document.hidden ? 15000 : 5000) : 2000;
+  _healthTimer = setTimeout(async () => {
+    await pollHealth();
+    scheduleHealthPoll();
+  }, delay);
+}
+
+async function boot() {
+  await pollHealth();
+  scheduleHealthPoll();
   pollGpu();
   scheduleGpuPoll();
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) pollGpu();
+    if (!document.hidden) {
+      pollHealth();
+      pollGpu();
+    }
+    scheduleHealthPoll();
     scheduleGpuPoll();
   });
+  try {
+    const job = await findLatestIncompleteJob();
+    if (job) showResumeBanner(job, { needFiles: true });
+  } catch (e) {
+    console.warn('Checkpoint load failed:', e);
+  }
 }
 boot();
 
@@ -935,11 +1837,13 @@ function syncExportButtons() {
   document.getElementById('copy-btn').disabled = !hasActiveMd;
   document.getElementById('export-btn').disabled = !hasActiveMd;
   const exportable = fileItems.some(
-    f => f.included && (f.markdown || (f.pageMarkdowns && f.pageMarkdowns.length))
-  );
+    f => f.included && (f.markdown || (f.pageMarkdowns && f.pageMarkdowns.some(Boolean)))
+  ) || jobHasExportablePages(pendingResumeJob) || jobHasExportablePages(activeJob);
   document.getElementById('zip-btn').disabled = !exportable;
+  const hasCkpt = !!(activeJob || pendingResumeJob);
+  document.getElementById('ckpt-dl-btn').disabled = !hasCkpt;
   document.getElementById('start-btn').disabled =
-    isRunning || !apiReady || !fileItems.some(f => f.included);
+    isRunning || !apiReady || !fileItems.some(f => f.included && f.file);
 }
 
 function renderFileList() {
@@ -1017,10 +1921,7 @@ function resetPreviewEmpty() {
   currentFile = null; isPDF = false; analysis = null; activeId = null;
   lastRawText = ''; lastMarkdown = ''; pageMarkdowns = [];
   document.getElementById('drop-zone').style.display = '';
-  document.getElementById('image-preview').classList.remove('visible');
-  document.getElementById('image-preview').src = '';
-  document.getElementById('pdf-canvas-wrap').classList.remove('visible');
-  document.getElementById('pdf-canvas-wrap').innerHTML = '';
+  hideScanPreviewShell();
   document.getElementById('zoom-btn').style.display = 'none';
   document.getElementById('input-type-tag').textContent = 'EMPTY';
   document.getElementById('analyze-bar').classList.remove('visible');
@@ -1064,9 +1965,16 @@ window.clearAll = clearAll;
 window.copyMarkdown = copyMarkdown;
 window.exportMarkdown = exportMarkdown;
 window.exportZip = exportZip;
+window.resumeFromBanner = resumeFromBanner;
+window.discardCheckpoint = discardCheckpoint;
+window.exportZipFromCheckpoint = exportZipFromCheckpoint;
+window.downloadCheckpoint = downloadCheckpoint;
+window.handleCheckpointInput = handleCheckpointInput;
 window.toggleZoom = () => {
   zoomedOut = !zoomedOut;
-  document.getElementById('image-preview').style.objectFit = zoomedOut ? 'cover' : 'contain';
+  const img = document.getElementById('image-preview');
+  img.style.objectFit = zoomedOut ? 'cover' : 'contain';
+  img.style.maxHeight = zoomedOut ? 'none' : 'min(70vh, 100%)';
 };
 window.scrollOutputTop    = () => { document.getElementById('output-area').scrollTop = 0; };
 window.scrollOutputBottom = () => {
@@ -1084,7 +1992,16 @@ async function analyzeFile(file) {
   const form = new FormData();
   form.append('file', file);
   const res = await fetch('/api/analyze', { method: 'POST', body: form });
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch (_) {
+    throw new Error(
+      res.status === 413
+        ? 'File too large for analyze'
+        : `Analyze HTTP ${res.status}`
+    );
+  }
   if (!res.ok || data.ok === false) throw new Error(data.error || 'Analyze failed');
   return data;
 }
@@ -1107,9 +2024,13 @@ function applyRecommendations(data) {
 
   const facts = document.getElementById('analyze-facts');
   const reasons = document.getElementById('analyze-reasons');
+  const sizeBytes = data.file_size_bytes || 0;
+  const sizeLabel = sizeBytes >= 1024 * 1024
+    ? `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.round(sizeBytes / 1024)} KB`;
   const chips = [
     ['FORMAT', String(data.format || '?').toUpperCase()],
-    ['SIZE', `${Math.round((data.file_size_bytes || 0) / 1024)} KB`],
+    ['SIZE', sizeLabel],
     ['PAGES', String(data.pages ?? 1)],
     ['DIM', data.width && data.height ? `${data.width}×${data.height}` : '—'],
     ['COLOR', data.color_mode || '—'],
@@ -1124,71 +2045,164 @@ function applyRecommendations(data) {
   document.getElementById('analyze-bar').classList.add('visible');
 }
 
+function defaultItemSettings(isPdf) {
+  return {
+    window_size: isPdf ? 1024 : 128,
+    ngram_size: 35,
+    ngram_enabled: true,
+    max_tokens: 8192,
+    multi: !!isPdf,
+  };
+}
+
+async function runAnalyzeInBackground(item) {
+  const file = item.file;
+  if (!file) return;
+  try {
+    const data = await analyzeFile(file);
+    item.analysis = data;
+    item.pages = data.pages ?? (item.isPDF ? item.pages : 1);
+    item.settings = {
+      window_size: data.recommendations?.window_size ?? (item.isPDF ? 1024 : 128),
+      ngram_size: data.recommendations?.ngram_size ?? 35,
+      ngram_enabled: data.recommendations?.ngram_enabled !== false,
+      max_tokens: data.recommendations?.max_tokens ?? 8192,
+      multi: !!data.multi_page,
+    };
+    if (item.status === 'pending') item.status = 'ready';
+    if (activeId === item.id) {
+      applyRecommendations(data);
+      if (item.pages != null) {
+        document.getElementById('page-count').textContent = item.pages;
+        document.getElementById('page-info').style.display = 'flex';
+      }
+    }
+  } catch (err) {
+    if (item.status === 'pending') item.status = 'ready';
+    if (!item.settings) item.settings = defaultItemSettings(item.isPDF);
+    showToast(`Analyze failed for ${item.name}: ${err.message}`);
+  }
+  renderFileList();
+  syncExportButtons();
+}
+
 // ── File loading (multi) ──────────────────────────────────────────────────────
+function isZipFile(file) {
+  const n = (file?.name || '').toLowerCase();
+  return file?.type === 'application/zip' ||
+    file?.type === 'application/x-zip-compressed' ||
+    n.endsWith('.zip');
+}
+
 async function addFiles(files) {
-  const accepted = files.filter(f => {
+  const list = Array.from(files || []);
+  const zips = list.filter(isZipFile);
+  const docs = list.filter(f => {
+    if (isZipFile(f)) return false;
     const n = f.name.toLowerCase();
     return f.type.startsWith('image/') || f.type === 'application/pdf' ||
       n.endsWith('.pdf') || n.endsWith('.png') || n.endsWith('.jpg') ||
       n.endsWith('.jpeg') || n.endsWith('.webp') || n.endsWith('.tif') || n.endsWith('.tiff');
   });
+
+  for (const zip of zips) {
+    await importOcrZip(zip);
+  }
+
+  const accepted = docs;
   if (!accepted.length) {
-    showToast('No supported files (PDF/PNG/JPEG/WEBP/TIFF)');
+    if (!zips.length) showToast('No supported files (PDF/PNG/JPEG/WEBP/TIFF/ZIP)');
     return;
   }
 
+  let remaining = accepted;
+
+  // If a resume job is waiting, attach matching files instead of starting fresh
+  if (pendingResumeJob && (!fileItems.length || fileItems.some(f => !f.file))) {
+    if (!fileItems.length) hydrateFileItemsFromJob(pendingResumeJob, false);
+    let attached = 0;
+    const unmatched = [];
+    for (const file of accepted) {
+      const item = fileItems.find(x => !x.file && fileMatchesItem(x, file, true));
+      if (item) {
+        item.file = file;
+        item.fingerprint = fileFingerprint(file);
+        item.name = file.name;
+        item.fromZip = false;
+        attached += 1;
+      } else {
+        unmatched.push(file);
+      }
+    }
+    if (attached) {
+      showToast(`Matched ${attached} file${attached > 1 ? 's' : ''} for resume`);
+      renderFileList();
+      refreshResumeBanner();
+      const first = fileItems.find(f => f.file);
+      if (first) await selectFile(first.id, { skipPreview: first.file.size >= PREVIEW_MAX_BYTES });
+      syncExportButtons();
+    }
+    remaining = unmatched;
+    if (attached && remaining.length) {
+      showToast(`${remaining.length} new file(s) will START as a fresh job (checkpoint still available)`);
+    } else if (!attached && remaining.length && pendingResumeJob) {
+      showToast('New file loaded — START for a fresh job, or re-select the matching PDF to RESUME');
+    }
+    if (!remaining.length) return;
+  }
+
   let firstNewId = null;
-  for (const file of accepted) {
+  for (const file of remaining) {
+    const fp = fileFingerprint(file);
+    if (fileItems.some(x => x.file && fingerprintsMatch(fileFingerprint(x.file), fp, true))) {
+      continue;
+    }
     const id = `f${++_fileIdSeq}`;
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const item = {
       id,
       file,
+      fingerprint: fp,
       name: file.name,
       isPDF: isPdf,
       pages: null,
       included: true,
       status: 'pending',
       analysis: null,
-      settings: null,
+      settings: defaultItemSettings(isPdf),
       markdown: '',
       pageMarkdowns: [],
+      pageRaws: [],
       rawText: '',
       error: null,
+      fromZip: false,
+      _pdfDoc: null,
+      _pdfObjectUrl: null,
     };
     fileItems.push(item);
     if (!firstNewId) firstNewId = id;
+    // Start is enabled as soon as the file is listed — do not wait for analyze.
     renderFileList();
+    syncExportButtons();
 
-    try {
-      const data = await analyzeFile(file);
-      item.analysis = data;
-      item.pages = data.pages ?? (isPdf ? null : 1);
-      item.settings = {
-        window_size: data.recommendations?.window_size ?? (isPdf ? 1024 : 128),
-        ngram_size: data.recommendations?.ngram_size ?? 35,
-        ngram_enabled: data.recommendations?.ngram_enabled !== false,
-        max_tokens: data.recommendations?.max_tokens ?? 8192,
-        multi: !!data.multi_page,
-      };
-      item.status = 'ready';
-    } catch (err) {
-      item.status = 'ready';
-      item.pages = isPdf ? null : 1;
-      item.settings = {
-        window_size: isPdf ? 1024 : 128,
-        ngram_size: 35,
-        ngram_enabled: true,
-        max_tokens: 8192,
-        multi: isPdf,
-      };
-      showToast(`Analyze failed for ${file.name}: ${err.message}`);
+    if (file.size >= WARN_SIZE_BYTES) {
+      showToast(
+        `${file.name}: ${Math.round(file.size / (1024 * 1024))} MB — START anytime; analyze runs in background`
+      );
     }
-    renderFileList();
+
+    void runAnalyzeInBackground(item);
   }
 
-  await selectFile(firstNewId || activeId || fileItems[0]?.id);
-  setStatus('idle', `READY · ${fileItems.length} file${fileItems.length > 1 ? 's' : ''} loaded`);
+  await selectFile(firstNewId || activeId || fileItems[0]?.id, {
+    skipPreview: !!(fileItems.find(f => f.id === (firstNewId || activeId))?.file?.size >= PREVIEW_MAX_BYTES),
+  });
+  setStatus(
+    apiReady ? 'idle' : 'error',
+    apiReady
+      ? `READY · ${fileItems.length} file${fileItems.length > 1 ? 's' : ''} loaded`
+      : 'CONNECTION ERROR · waiting for vLLM (Start unlocks when ready)'
+  );
 }
 
 async function selectFile(id, opts = {}) {
@@ -1203,10 +2217,15 @@ async function selectFile(id, opts = {}) {
   lastMarkdown = item.markdown || '';
   pageMarkdowns = item.pageMarkdowns ? [...item.pageMarkdowns] : [];
 
-  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('drop-zone').style.display = item.file ? 'none' : '';
   document.getElementById('image-preview').classList.remove('visible');
+  document.getElementById('image-preview').removeAttribute('src');
   document.getElementById('pdf-canvas-wrap').classList.remove('visible');
-  document.getElementById('zoom-btn').style.display = 'flex';
+  document.getElementById('pdf-canvas-wrap').innerHTML = '';
+  clearBBoxes();
+  setScanningVisual(false);
+  setScanBadge(null);
+  document.getElementById('zoom-btn').style.display = item.file ? 'flex' : 'none';
   document.getElementById('input-type-tag').textContent =
     isPDF ? 'PDF' : item.name.split('.').pop().toUpperCase();
 
@@ -1223,16 +2242,18 @@ async function selectFile(id, opts = {}) {
   }
 
   if (!opts.keepOutput) {
-    if (item.markdown || item.rawText) {
+    if (item.markdown || item.rawText || item.pageMarkdowns?.some(Boolean)) {
       document.getElementById('output-placeholder').style.display = 'none';
       document.getElementById('md-placeholder').style.display = 'none';
       document.getElementById('ocr-text').textContent = item.rawText || '';
-      if (item.pageMarkdowns?.length > 1) {
+      if (item.pageMarkdowns?.some(Boolean)) {
         clearMdDom();
-        pageMarkdowns = [];
-        for (const md of item.pageMarkdowns) commitPageMarkdown(md);
-        lastMarkdown = item.markdown;
-        document.getElementById('md-tag').textContent = item.status === 'done' ? 'DONE' : 'READY';
+        pageMarkdowns = item.pageMarkdowns ? [...item.pageMarkdowns] : [];
+        for (const md of item.pageMarkdowns) {
+          if (md) commitPageMarkdown(md);
+        }
+        lastMarkdown = item.markdown || item.pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+        document.getElementById('md-tag').textContent = item.status === 'done' ? 'DONE' : 'PARTIAL';
       } else {
         renderMarkdown(item.markdown || '');
       }
@@ -1245,40 +2266,111 @@ async function selectFile(id, opts = {}) {
     }
   }
 
+  if (!item.file) {
+    const hasMd = !!(item.markdown || item.pageMarkdowns?.some(Boolean));
+    if (hasMd) {
+      document.getElementById('drop-zone').style.display = 'none';
+      showScanPreviewShell();
+      const wrap = document.getElementById('pdf-canvas-wrap');
+      const img = document.getElementById('image-preview');
+      img.classList.remove('visible');
+      img.removeAttribute('src');
+      wrap.classList.add('visible');
+      const saved = pagesDoneForItem(item);
+      const total = item.pages || item.pageMarkdowns?.length || saved || 1;
+      wrap.innerHTML =
+        `<div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;padding:20px;line-height:1.5">` +
+        `${escapeHtml(item.name)}` +
+        `<br><span style="color:var(--teal)">Imported OCR · ${saved}/${total} pages</span>` +
+        (item.status !== 'done'
+          ? `<br><span style="color:var(--text-muted)">Attach matching PDF to resume remaining pages</span>`
+          : `<br><span style="color:var(--text-muted)">Browse pages · ZIP / COPY / .MD ready</span>`) +
+        `</div>`;
+      setPageStrip(total > 1 ? total : 0, 0, saved > 0 ? saved - 1 : -1);
+      setScanBadge(total > 1 ? `PAGE 1 / ${total}` : 'IMPORTED', { scanning: false });
+      document.getElementById('zoom-btn').style.display = 'none';
+    } else {
+      document.getElementById('drop-zone').style.display = '';
+      hideScanPreviewShell();
+      const hint = document.querySelector('#drop-zone .drop-hint');
+      if (hint) hint.textContent = `Re-select “${item.name}” to resume · same name & size`;
+    }
+    renderFileList();
+    syncExportButtons();
+    return;
+  }
+
+  const dropHint = document.querySelector('#drop-zone .drop-hint');
+  if (dropHint) dropHint.textContent = 'or click to browse · PDF/images or processed OCR ZIP';
+
+  showScanPreviewShell();
+
   if (isPDF) {
     const wrap = document.getElementById('pdf-canvas-wrap');
-    wrap.innerHTML = '<div style="color:var(--teal);font-family:var(--font-mono);font-size:11px;padding:20px">Rendering PDF…</div>';
+    const img = document.getElementById('image-preview');
+    img.classList.remove('visible');
     wrap.classList.add('visible');
-    try {
-      const buffer = await item.file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-      const total = pdf.numPages;
-      item.pages = total;
-      document.getElementById('page-count').textContent = total;
-      document.getElementById('page-info').style.display = 'flex';
-      wrap.innerHTML = '';
-      for (let i = 1; i <= Math.min(total, 12); i++) {
-        const page = await pdf.getPage(i);
+
+    const pagesKnown = item.pages || 0;
+    if (pagesKnown > 1) setPageStrip(pagesKnown, 0, -1);
+    else setPageStrip(0, 0, -1);
+
+    if (opts.skipPreview) {
+      // Activate for OCR without re-rasterizing the book into the preview pane.
+      // Live page images appear when each page starts OCR.
+      if (!wrap.childElementCount) {
+        const mb = item.file ? (item.file.size / (1024 * 1024)).toFixed(1) : '?';
+        wrap.innerHTML =
+          `<div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;padding:20px;line-height:1.5">` +
+          `${escapeHtml(item.name)} · ${mb} MB` +
+          (item.pages != null ? ` · ${item.pages} pages` : '') +
+          `<br><span style="color:var(--teal)">OCR will render pages one at a time</span></div>`;
+      }
+      setScanBadge(item.pages ? `PDF · ${item.pages} PAGES` : 'PDF', { scanning: false });
+    } else if (item.file.size >= PREVIEW_MAX_BYTES) {
+      const mb = (item.file.size / (1024 * 1024)).toFixed(1);
+      wrap.innerHTML =
+        `<div style="color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;padding:20px;line-height:1.5">` +
+        `Large PDF (${mb} MB) — preview skipped to save memory.` +
+        (item.pages != null ? `<br>${item.pages} pages detected.` : '<br>Page count arrives when analyze finishes.') +
+        `<br><span style="color:var(--teal)">Click START anytime — live page preview during OCR</span></div>`;
+      setScanBadge(item.pages ? `PDF · ${item.pages} PAGES` : 'LARGE PDF', { scanning: false });
+    } else {
+      wrap.innerHTML = '<div style="color:var(--teal);font-family:var(--font-mono);font-size:11px;padding:20px">Rendering first page…</div>';
+      try {
+        const pdf = await getPdfDocForItem(item);
+        const total = pdf.numPages;
+        item.pages = total;
+        document.getElementById('page-count').textContent = total;
+        document.getElementById('page-info').style.display = 'flex';
+        wrap.innerHTML = '';
+        // Single-page preview only — never rasterize the whole book up front.
+        const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1.0 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
         wrap.appendChild(canvas);
+        if (total > 1) {
+          const more = document.createElement('div');
+          more.className = 'pdf-preview-note';
+          more.textContent = `Page 1 preview · ${total} pages total`;
+          wrap.appendChild(more);
+          setPageStrip(total, 0, -1);
+        }
+        setScanBadge(total > 1 ? `PAGE 1 / ${total}` : 'PAGE 1', { scanning: false });
+      } catch (err) {
+        wrap.innerHTML = `<div style="color:var(--red);padding:16px;font-family:var(--font-mono);font-size:11px">Preview failed: ${escapeHtml(err.message)}. You can still START.</div>`;
       }
-      if (total > 12) {
-        const more = document.createElement('div');
-        more.style.cssText = 'color:#ccc;font-family:var(--font-mono);font-size:11px;padding:8px';
-        more.textContent = `… and ${total - 12} more pages (preview capped for memory)`;
-        wrap.appendChild(more);
-      }
-    } catch (err) {
-      wrap.innerHTML = `<div style="color:var(--red);padding:16px;font-family:var(--font-mono);font-size:11px">Preview failed: ${escapeHtml(err.message)}</div>`;
     }
   } else {
     const preview = document.getElementById('image-preview');
+    document.getElementById('pdf-canvas-wrap').classList.remove('visible');
     preview.src = URL.createObjectURL(item.file);
     preview.classList.add('visible');
+    setPageStrip(0, 0, -1);
+    setScanBadge(null);
   }
 
   renderFileList();
@@ -1296,14 +2388,57 @@ function appendOcrSettings(form, itemSettings) {
 }
 
 // ── OCR entry ─────────────────────────────────────────────────────────────────
-async function startOCR() {
-  const batch = fileItems.filter(f => f.included);
-  if (!batch.length || isRunning) return;
-  if (!apiReady) { showToast('Server not ready yet'); return; }
+async function startOCR(opts = {}) {
+  const resumeMode = !!opts.resume;
+  const batch = fileItems.filter(f => f.included && f.file);
+  if (!batch.length || isRunning) {
+    if (resumeMode && fileItems.some(f => f.included && !f.file)) {
+      showToast('Re-select the PDF to resume');
+      refreshResumeBanner();
+    }
+    return;
+  }
+  if (!apiReady) {
+    showToast('vLLM not ready yet — waiting for connection (Start unlocks automatically)');
+    void pollHealth();
+    return;
+  }
 
   isRunning     = true;
   stopRequested = false;
   abortCtrl     = new AbortController();
+
+  if (!resumeMode) {
+    // Starting fresh — drop any leftover incomplete job so refresh doesn't revive it
+    if (pendingResumeJob?.id) {
+      try { await idbDeleteJob(pendingResumeJob.id); } catch (_) { /* ignore */ }
+    }
+    if (activeJob?.id && isJobIncomplete(activeJob)) {
+      try { await idbDeleteJob(activeJob.id); } catch (_) { /* ignore */ }
+    }
+    hideResumeBanner();
+    activeJob = {
+      id: newJobId(),
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      status: 'running',
+      mode: currentMode,
+      prompt: document.getElementById('prompt-input').value || 'document parsing.',
+      ngramEnabled: document.getElementById('ngram-toggle').checked,
+      settings: { ...settings },
+      files: [],
+      activeFileId: null,
+    };
+  } else {
+    hideResumeBanner();
+    if (!activeJob) activeJob = pendingResumeJob;
+    // Restore job-level settings from checkpoint
+    if (activeJob?.mode) setMode(activeJob.mode);
+    if (activeJob?.prompt != null) document.getElementById('prompt-input').value = activeJob.prompt;
+    if (activeJob?.ngramEnabled != null) document.getElementById('ngram-toggle').checked = !!activeJob.ngramEnabled;
+    if (activeJob?.settings) settings = { ...activeJob.settings };
+  }
 
   document.getElementById('start-btn').disabled = true;
   document.getElementById('stop-btn').disabled  = false;
@@ -1317,18 +2452,65 @@ async function startOCR() {
   const ocrDiv = document.getElementById('ocr-text');
 
   try {
+    await saveCheckpointNow('running');
+
     for (let bi = 0; bi < batch.length; bi++) {
       if (stopRequested) break;
       const item = batch[bi];
-      await selectFile(item.id, { keepOutput: false, skipAnalyzeUi: false });
+      if (!item.file) {
+        showToast(`Re-select ${item.name} to resume`);
+        break;
+      }
+
+      // Skip fully completed files when resuming
+      if (resumeMode) {
+        const next = nextIncompletePageIndex(item);
+        if (next < 0 && item.isPDF && item.pages && pagesDoneForItem(item) >= item.pages) {
+          item.status = 'done';
+          renderFileList();
+          continue;
+        }
+        if (!item.isPDF && (item.markdown || item.pageMarkdowns?.[0])) {
+          item.status = 'done';
+          renderFileList();
+          continue;
+        }
+      }
+
+      await selectFile(item.id, { keepOutput: false, skipAnalyzeUi: false, skipPreview: true });
       item.status = 'running';
       renderFileList();
 
-      charCount = 0;
-      lastRawText = '';
-      lastMarkdown = '';
-      pageMarkdowns = [];
-      clearOutput();
+      const skipping = resumeMode && pagesDoneForItem(item) > 0;
+      if (!skipping) {
+        charCount = 0;
+        lastRawText = '';
+        lastMarkdown = '';
+        pageMarkdowns = [];
+        clearOutput();
+      } else {
+        // Restore prior pages into the UI (clear first — clearOutput resets pageMarkdowns)
+        clearOutput();
+        lastRawText = item.rawText || '';
+        lastMarkdown = item.markdown || '';
+        pageMarkdowns = item.pageMarkdowns ? [...item.pageMarkdowns] : [];
+        document.getElementById('output-placeholder').style.display = 'none';
+        document.getElementById('md-placeholder').style.display = 'none';
+        if (pageMarkdowns.some(Boolean)) {
+          clearMdDom();
+          for (const md of pageMarkdowns) {
+            if (md) commitPageMarkdown(md);
+          }
+          lastMarkdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+        }
+        if (item.rawText) {
+          document.getElementById('ocr-text').textContent = item.rawText;
+        }
+        charCount = (item.rawText || '').length;
+        document.getElementById('char-count').textContent = charCount.toLocaleString();
+        document.getElementById('token-display').style.display = charCount ? 'flex' : 'none';
+      }
+
       document.getElementById('output-placeholder').style.display = 'none';
       document.getElementById('md-placeholder').style.display = 'none';
       document.getElementById('output-tag').textContent = 'RUNNING';
@@ -1341,26 +2523,43 @@ async function startOCR() {
 
       try {
         if (item.isPDF) {
-          await runPDF(ocrDiv, prompt, mode, item);
+          await runPDF(ocrDiv, prompt, mode, item, { resume: resumeMode });
         } else {
           await runSingleImage(ocrDiv, prompt, mode, item);
         }
         if (stopRequested) {
-          item.status = item.markdown ? 'done' : 'ready';
+          item.status = 'ready';
         } else if (item.status !== 'error') {
           item.status = 'done';
         }
       } catch (err) {
         if (stopRequested || err.name === 'AbortError') {
-          item.status = item.markdown ? 'done' : 'ready';
+          item.status = 'ready';
         } else {
           item.status = 'error';
           item.error = err.message;
           showError(ocrDiv, err.message);
         }
       }
+      await releasePdfDoc(item);
       renderFileList();
       syncExportButtons();
+      await saveCheckpointNow(stopRequested ? 'stopped' : (item.status === 'done' ? 'running' : item.status));
+    }
+
+    const allDone = fileItems.filter(f => f.included).every(f => {
+      if (!f.isPDF) return !!(f.markdown || f.pageMarkdowns?.[0]);
+      return f.pages && pagesDoneForItem(f) >= f.pages;
+    });
+    if (stopRequested) {
+      await saveCheckpointNow('stopped');
+      showResumeBanner(activeJob);
+    } else if (allDone) {
+      await saveCheckpointNow('done');
+      // Keep done job briefly available for ZIP/CKPT; optional cleanup later
+    } else if (activeJob && isJobIncomplete(activeJob)) {
+      await saveCheckpointNow('stopped');
+      showResumeBanner(activeJob);
     }
   } finally {
     isRunning = false;
@@ -1414,9 +2613,33 @@ async function streamOcr(formData, onChunk) {
 }
 
 async function runSingleImage(ocrDiv, prompt, mode, item) {
+  // Already complete — skip
+  if (item.markdown || item.pageMarkdowns?.[0]) {
+    finishDone(item.rawText || item.markdown);
+    return;
+  }
+
   ocrDiv.innerHTML = '<span class="cursor"></span>';
   clearMdDom();
   setStatus('running', `LOCAL GPU · ${item.name}`);
+
+  // Reuse INPUT preview; turn on scanning affordance (no extra raster).
+  const img = document.getElementById('image-preview');
+  if (!img.classList.contains('visible') || !img.src) {
+    showLiveImageScan(URL.createObjectURL(item.file), {
+      page: 0, total: 1, label: 'SCANNING',
+    });
+  } else {
+    showScanPreviewShell();
+    document.getElementById('pdf-canvas-wrap').classList.remove('visible');
+    img.classList.add('visible');
+    _scanPage = 0;
+    _scanTotal = 1;
+    setScanBadge('SCANNING', { scanning: true });
+    setScanningVisual(true);
+    setPageStrip(0, 0, -1);
+    clearBBoxes();
+  }
 
   const form = new FormData();
   form.append('image', item.file);
@@ -1428,15 +2651,20 @@ async function runSingleImage(ocrDiv, prompt, mode, item) {
     const result = await streamOcr(form, (text, md, done) => {
       scheduleRawText(ocrDiv, text);
       updateLivePreview(text, md);
+      scheduleBBoxUpdate(text);
       if (done) {
         flushRawText();
         flushLiveMarkdown();
+        flushBBoxes();
       }
     });
     if (stopRequested) {
       item.rawText = result.text || lastRawText;
       item.markdown = result.markdown || toCleanMarkdown(item.rawText);
       item.pageMarkdowns = item.markdown ? [item.markdown] : [];
+      item.pageRaws = item.rawText ? [item.rawText] : [];
+      endScanningVisual({ keepPreview: true });
+      await saveCheckpointNow('stopped');
       return finishStop(ocrDiv);
     }
     flushRawText();
@@ -1444,61 +2672,80 @@ async function runSingleImage(ocrDiv, prompt, mode, item) {
     item.rawText = result.text || '';
     item.markdown = lastMarkdown;
     item.pageMarkdowns = lastMarkdown ? [lastMarkdown] : [];
+    item.pageRaws = item.rawText ? [item.rawText] : [];
     renderMarkdown(lastMarkdown);
+    endScanningVisual({ keepPreview: true });
+    await saveCheckpointNow('running');
     finishDone(result.text);
   } catch (err) {
-    if (stopRequested || err.name === 'AbortError') return finishStop(ocrDiv);
+    endScanningVisual({ keepPreview: true });
+    if (stopRequested || err.name === 'AbortError') {
+      await saveCheckpointNow('stopped');
+      return finishStop(ocrDiv);
+    }
     item.status = 'error';
     showError(ocrDiv, err.message);
     throw err;
   }
 }
 
-async function runPDF(ocrDiv, prompt, mode, item) {
-  setStatus('running', `EXTRACTING · ${item.name}`);
-  ocrDiv.innerHTML = '<span class="cursor"></span>';
-  clearMdDom();
+async function runPDF(ocrDiv, prompt, mode, item, opts = {}) {
+  setStatus('running', `LOADING PDF · ${item.name}`);
+  if (!opts.resume || !pageMarkdowns.length) {
+    ocrDiv.innerHTML = '<span class="cursor"></span>';
+    if (!opts.resume) clearMdDom();
+  }
 
-  let pages;
+  let pdf;
   try {
-    const form = new FormData();
-    form.append('pdf_file', item.file);
-    const res = await fetch('/api/explode_pdf', {
-      method: 'POST',
-      body: form,
-      signal: abortCtrl?.signal,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    pages = data.pages || [];
+    pdf = await getPdfDocForItem(item);
   } catch (err) {
     if (stopRequested || err.name === 'AbortError') return finishStop(ocrDiv);
     item.status = 'error';
-    showError(ocrDiv, 'PDF extraction failed: ' + err.message);
+    showError(ocrDiv, 'PDF open failed: ' + err.message);
     throw err;
   }
 
-  if (!pages.length) {
-    item.status = 'error';
-    showError(ocrDiv, 'No pages found in PDF.');
-    throw new Error('No pages found in PDF.');
-  }
-
-  const total = pages.length;
+  const total = pdf.numPages;
   item.pages = total;
   document.getElementById('page-count').textContent = total;
   document.getElementById('page-info').style.display = 'flex';
-  ocrDiv.textContent = '';
-  pageMarkdowns = [];
 
-  let fullText = '';
+  // Ensure page arrays are sized (holes = incomplete)
+  if (!item.pageMarkdowns) item.pageMarkdowns = [];
+  if (!item.pageRaws) item.pageRaws = [];
+  pageMarkdowns = item.pageMarkdowns;
 
-  for (let i = 0; i < total; i++) {
+  let fullText = item.rawText || '';
+  if (!opts.resume || !ocrDiv.textContent) {
+    ocrDiv.textContent = fullText || '';
+  }
+
+  const startAt = nextIncompletePageIndex(item);
+  setPageStrip(total, Math.max(0, startAt), startAt > 0 ? startAt - 1 : -1);
+  if (startAt < 0) {
+    item.markdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+    lastMarkdown = item.markdown;
+    endScanningVisual({ keepPreview: true });
+    finishDone(fullText);
+    return;
+  }
+
+  for (let i = startAt; i < total; i++) {
     if (stopRequested) {
       item.rawText = fullText;
       item.pageMarkdowns = [...pageMarkdowns];
       item.markdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+      endScanningVisual({ keepPreview: true });
+      await saveCheckpointNow('stopped');
       return finishStop(ocrDiv);
+    }
+
+    // Skip pages that already have markdown
+    if (pageMarkdowns[i] != null && pageMarkdowns[i] !== '') {
+      setStatus('running', `${item.name} · PAGE ${i + 1} / ${total} · saved`);
+      setPageStrip(total, i, i);
+      continue;
     }
 
     setStatus('running', `${item.name} · PAGE ${i + 1} / ${total}`);
@@ -1517,46 +2764,68 @@ async function runPDF(ocrDiv, prompt, mode, item) {
     ocrDiv.appendChild(slot);
     window.scrollOutputBottom();
 
-    const form = new FormData();
-    form.append('image_data_url', pages[i].data_url);
-    form.append('prompt', prompt);
-    form.append('mode', mode);
-    appendOcrSettings(form, item.settings);
-
+    let dataUrl = null;
     try {
+      dataUrl = await pdfPageToDataUrl(pdf, i);
+      // Show the page being OCR'd as soon as it is rasterized (before stream).
+      showLivePdfPage(dataUrl, i, total);
+
+      const form = new FormData();
+      form.append('image_data_url', dataUrl);
+      form.append('prompt', prompt);
+      form.append('mode', mode);
+      appendOcrSettings(form, item.settings);
+
       const result = await streamOcr(form, (text, md, done) => {
         slot.style.color = 'var(--text-primary)';
         scheduleRawText(slot, text);
         if (md) scheduleLiveMarkdown(md);
         else scheduleLiveMarkdown(text, { raw: true });
+        scheduleBBoxUpdate(text);
         if (done) {
           flushRawText();
           flushLiveMarkdown();
+          flushBBoxes();
         }
       });
       flushRawText();
       flushLiveMarkdown();
       const pageText = result.text || '';
       const pageMd = result.markdown || toCleanMarkdown(pageText);
-      pageMarkdowns.push(pageMd);
-      fullText  += (fullText ? '\n\n' : '') + pageText;
+      pageMarkdowns[i] = pageMd;
+      item.pageMarkdowns = [...pageMarkdowns];
+      item.pageRaws[i] = pageText;
+      fullText  = (item.pageRaws || []).filter(t => t != null && t !== '').join('\n\n');
+      // Prefer chronological join of completed pages
+      const orderedRaws = [];
+      for (let p = 0; p < total; p++) {
+        if (item.pageRaws[p]) orderedRaws.push(item.pageRaws[p]);
+      }
+      fullText = orderedRaws.join('\n\n');
       lastRawText = fullText;
       lastMarkdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+      item.rawText = fullText;
+      item.markdown = lastMarkdown;
       commitPageMarkdown(pageMd);
       charCount  = fullText.length;
       document.getElementById('char-count').textContent      = charCount.toLocaleString();
       document.getElementById('token-display').style.display = 'flex';
       if (!pageText) slot.textContent = '(no text detected)';
+      markScanPageDone(i, total);
+      setStatus('running', `${item.name} · PAGE ${i + 1} / ${total} · saved`);
+      await saveCheckpointNow('running');
     } catch (err) {
       if (stopRequested || err.name === 'AbortError') {
         item.rawText = fullText;
         item.pageMarkdowns = [...pageMarkdowns];
         item.markdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+        endScanningVisual({ keepPreview: true });
+        await saveCheckpointNow('stopped');
         return finishStop(ocrDiv);
       }
-      slot.innerHTML = `<span style="color:var(--red)">Page ${i + 1} error: ${err.message}</span>`;
+      slot.innerHTML = `<span style="color:var(--red)">Page ${i + 1} error: ${escapeHtml(err.message)}</span>`;
     } finally {
-      pages[i].data_url = null;
+      dataUrl = null;
     }
 
     if (i + 1 < total && !stopRequested) {
@@ -1568,6 +2837,8 @@ async function runPDF(ocrDiv, prompt, mode, item) {
   item.pageMarkdowns = [...pageMarkdowns];
   item.markdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
   lastMarkdown = item.markdown;
+  endScanningVisual({ keepPreview: true });
+  await saveCheckpointNow('running');
   finishDone(fullText);
 }
 
@@ -1575,13 +2846,15 @@ function stopOCR() {
   stopRequested = true;
   abortCtrl?.abort();
   cancelPreviewTimers();
+  endScanningVisual({ keepPreview: true });
 }
 
 function finishStop(ocrDiv) {
   cancelPreviewTimers();
   flushRawText();
+  endScanningVisual({ keepPreview: true });
   ocrDiv.querySelectorAll('.cursor').forEach(c => c.remove());
-  setStatus('idle', 'STOPPED by user');
+  setStatus('idle', 'STOPPED by user · progress saved');
   document.getElementById('output-tag').textContent = 'STOPPED';
   document.getElementById('md-tag').textContent = lastMarkdown ? 'PARTIAL' : 'STOPPED';
   setProgressIndeterminate(false);
@@ -1594,11 +2867,15 @@ function finishStop(ocrDiv) {
     item.markdown = item.markdown || lastMarkdown;
     if (!item.pageMarkdowns?.length && item.markdown) item.pageMarkdowns = [item.markdown];
   }
+  saveCheckpointNow('stopped').then(job => {
+    if (job && isJobIncomplete(job)) showResumeBanner(job);
+  });
   syncExportButtons();
 }
 
 function finishDone(text) {
   cancelPreviewTimers();
+  endScanningVisual({ keepPreview: true });
   charCount = text.length;
   lastRawText = text;
   if (!lastMarkdown) lastMarkdown = toCleanMarkdown(text);
@@ -1625,7 +2902,7 @@ function finishDone(text) {
 
 function showError(ocrDiv, msg) {
   cancelPreviewTimers();
-  ocrDiv.innerHTML = `<span style="color:var(--red)">ERROR: ${msg}</span>`;
+  ocrDiv.innerHTML = `<span style="color:var(--red)">ERROR: ${escapeHtml(msg)}</span>`;
   setStatus('error', 'ERROR · ' + msg);
   document.getElementById('output-tag').textContent = 'ERROR';
   document.getElementById('md-tag').textContent = 'ERROR';
@@ -1649,8 +2926,17 @@ function clearOutput() {
   setProgressValue(0);
 }
 
-function clearAll() {
+async function clearAll() {
   if (isRunning) stopOCR();
+  for (const item of fileItems) await releasePdfDoc(item);
+  if (activeJob?.id) {
+    try { await idbDeleteJob(activeJob.id); } catch (_) { /* ignore */ }
+  }
+  if (pendingResumeJob?.id && pendingResumeJob.id !== activeJob?.id) {
+    try { await idbDeleteJob(pendingResumeJob.id); } catch (_) { /* ignore */ }
+  }
+  activeJob = null;
+  hideResumeBanner();
   fileItems = [];
   activeId = null;
   currentFile = null; isPDF = false; analysis = null;
@@ -1658,10 +2944,7 @@ function clearAll() {
   document.getElementById('window-display').textContent = '128';
   document.getElementById('analyze-bar').classList.remove('visible');
   document.getElementById('drop-zone').style.display      = '';
-  const p = document.getElementById('image-preview');
-  p.classList.remove('visible'); p.src = '';
-  document.getElementById('pdf-canvas-wrap').classList.remove('visible');
-  document.getElementById('pdf-canvas-wrap').innerHTML = '';
+  hideScanPreviewShell();
   document.getElementById('zoom-btn').style.display = 'none';
   document.getElementById('input-type-tag').textContent = 'EMPTY';
   document.getElementById('page-info').style.display = 'none';
@@ -1686,7 +2969,21 @@ function exportMarkdown() {
   const md = item?.markdown || lastMarkdown;
   if (!md) return;
   const base = (item?.name || currentFile?.name || 'ocr-output').replace(/\.[^.]+$/, '');
-  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  let body = md;
+  // Single-file .MD: add light front matter when we know page context
+  if (item && (item.pages || item.pageMarkdowns?.length)) {
+    const total = item.pages || item.pageMarkdowns.length || 1;
+    const title = pageTitleFromMd(md, 1) || base;
+    body = buildFrontMatter({
+      title,
+      source: item.name,
+      page: 1,
+      totalPages: total,
+      prev: null,
+      next: total > 1 ? `p${padPageNum(2)}.md` : null,
+    }) + stripFrontMatter(md).body;
+  }
+  const blob = new Blob([body], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1700,10 +2997,186 @@ function safeZipName(name) {
   return String(name).replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim() || 'file';
 }
 
-async function exportZip() {
-  const sources = fileItems.filter(
-    f => f.included && (f.markdown || (f.pageMarkdowns && f.pageMarkdowns.length))
+function bookSlug(name) {
+  const base = safeZipName(String(name || 'book').replace(/\.[^.]+$/, ''));
+  return base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'book';
+}
+
+function padPageNum(n, width = 3) {
+  return String(n).padStart(Math.max(3, width), '0');
+}
+
+function extractHeadings(md) {
+  const headings = [];
+  for (const line of String(md || '').split('\n')) {
+    const m = /^(#{1,6})\s+(.+?)\s*$/.exec(line.trim());
+    if (m) headings.push(m[2].replace(/\s+#+\s*$/, '').trim());
+  }
+  return headings;
+}
+
+function pageTitleFromMd(md, pageNum) {
+  const headings = extractHeadings(md);
+  return headings[0] || `Page ${pageNum}`;
+}
+
+function yamlScalar(value) {
+  if (value == null) return 'null';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  const str = String(value);
+  if (str === '' || /[:#{}[\],&*?|>!%@`'"\\\n\r]|(?:^|\s)[-?](?:\s|$)/.test(str)) {
+    return JSON.stringify(str);
+  }
+  return str;
+}
+
+function buildFrontMatter({ title, source, page, totalPages, prev, next }) {
+  return [
+    '---',
+    `title: ${yamlScalar(title)}`,
+    `source: ${yamlScalar(source)}`,
+    `page: ${page}`,
+    `total_pages: ${totalPages}`,
+    `prev: ${prev == null ? 'null' : yamlScalar(prev)}`,
+    `next: ${next == null ? 'null' : yamlScalar(next)}`,
+    '---',
+    '',
+  ].join('\n');
+}
+
+function stripFrontMatter(text) {
+  const s = String(text || '');
+  if (!s.startsWith('---\n') && !s.startsWith('---\r\n')) {
+    return { meta: {}, body: s };
+  }
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(s);
+  if (!match) return { meta: {}, body: s };
+  const meta = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const m = /^(\w+)\s*:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    let v = m[2].trim();
+    if (v === 'null') v = null;
+    else if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      try {
+        v = v.startsWith('"') ? JSON.parse(v) : v.slice(1, -1);
+      } catch {
+        v = v.slice(1, -1);
+      }
+    } else if (/^\d+$/.test(v)) {
+      v = Number(v);
+    }
+    meta[m[1]] = v;
+  }
+  return { meta, body: s.slice(match[0].length) };
+}
+
+function collectZipSources() {
+  const fromItems = fileItems.filter(
+    f => f.included && (f.markdown || (f.pageMarkdowns && f.pageMarkdowns.some(Boolean)))
   );
+  if (fromItems.length) return fromItems;
+  const job = activeJob || pendingResumeJob;
+  if (!job?.files) return [];
+  return job.files.filter(f => f.markdown || (f.pageMarkdowns && f.pageMarkdowns.some(Boolean)))
+    .map(f => ({
+      name: f.name,
+      isPDF: f.isPDF,
+      pages: f.pages,
+      markdown: f.markdown,
+      pageMarkdowns: f.pageMarkdowns,
+      included: true,
+    }));
+}
+
+function buildIndexMarkdown({ title, source, pageCount, pages }) {
+  const lines = [
+    `# ${title}`,
+    '',
+    `- **Source:** ${source}`,
+    `- **Pages:** ${pageCount}`,
+    '',
+    '## Table of contents',
+    '',
+  ];
+  for (const p of pages) {
+    const label = p.title || `Page ${p.page}`;
+    lines.push(`${p.page}. [${label}](${p.path})`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function addSourceToZip(zip, item, { useFolder }) {
+  const sourceName = item.name || 'document';
+  const slug = bookSlug(sourceName);
+  const prefix = useFolder ? `${slug}/` : '';
+  const pageMds = [];
+  if (item.isPDF || (item.pageMarkdowns && item.pageMarkdowns.length > 1) ||
+      (item.pages && item.pages > 1)) {
+    const arr = item.pageMarkdowns || [];
+    const totalHint = item.pages || arr.length;
+    for (let i = 0; i < Math.max(arr.length, totalHint || 0); i++) {
+      const md = arr[i];
+      if (md == null || md === '') continue;
+      pageMds.push({ page: i + 1, body: stripFrontMatter(md).body });
+    }
+  } else {
+    const md = item.markdown || item.pageMarkdowns?.[0] || '';
+    if (md) pageMds.push({ page: 1, body: stripFrontMatter(md).body });
+  }
+  if (!pageMds.length) return 0;
+
+  const totalPages = item.pages || pageMds[pageMds.length - 1].page;
+  const width = Math.max(3, String(totalPages).length);
+  const manifestPages = [];
+  const tocPages = [];
+
+  for (let i = 0; i < pageMds.length; i++) {
+    const { page, body } = pageMds[i];
+    const path = `p${padPageNum(page, width)}.md`;
+    const prevPath = i > 0 ? `p${padPageNum(pageMds[i - 1].page, width)}.md` : null;
+    const nextPath = i < pageMds.length - 1 ? `p${padPageNum(pageMds[i + 1].page, width)}.md` : null;
+    const headings = extractHeadings(body);
+    const title = headings[0] || `Page ${page}`;
+    const content = buildFrontMatter({
+      title,
+      source: sourceName,
+      page,
+      totalPages,
+      prev: prevPath,
+      next: nextPath,
+    }) + body.replace(/^\n+/, '');
+    zip.file(prefix + path, content.endsWith('\n') ? content : content + '\n');
+    manifestPages.push({
+      page,
+      path: prefix ? path : path,
+      title,
+      headings,
+      char_count: body.length,
+    });
+    tocPages.push({ page, path, title });
+  }
+
+  const docTitle = tocPages[0]?.title || slug;
+  const indexMd = buildIndexMarkdown({
+    title: docTitle,
+    source: sourceName,
+    pageCount: totalPages,
+    pages: tocPages,
+  });
+  zip.file(prefix + 'index.md', indexMd);
+  const manifest = {
+    source: sourceName,
+    page_count: totalPages,
+    pages: manifestPages,
+  };
+  zip.file(prefix + 'manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+  return pageMds.length;
+}
+
+async function exportZip() {
+  const sources = collectZipSources();
   if (!sources.length) {
     showToast('No completed OCR results to export');
     return;
@@ -1713,39 +3186,374 @@ async function exportZip() {
     return;
   }
   const zip = new JSZip();
-  const used = new Set();
+  const useFolder = sources.length > 1;
+  let pageFiles = 0;
   for (const item of sources) {
-    const base = safeZipName(item.name.replace(/\.[^.]+$/, ''));
-    if (item.isPDF && item.pageMarkdowns?.length) {
-      item.pageMarkdowns.forEach((md, i) => {
-        let name = `${base}-page-${String(i + 1).padStart(2, '0')}.md`;
-        let n = 2;
-        while (used.has(name)) {
-          name = `${base}-page-${String(i + 1).padStart(2, '0')}-${n}.md`;
-          n += 1;
-        }
-        used.add(name);
-        zip.file(name, md || '');
-      });
-    } else {
-      let name = `${base}.md`;
-      let n = 2;
-      while (used.has(name)) {
-        name = `${base}-${n}.md`;
-        n += 1;
-      }
-      used.add(name);
-      zip.file(name, item.markdown || item.pageMarkdowns?.[0] || '');
-    }
+    pageFiles += addSourceToZip(zip, item, { useFolder });
+  }
+  if (!pageFiles) {
+    showToast('No completed pages to export');
+    return;
   }
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'ocr-export.zip';
+  a.download = sources.length === 1
+    ? `${bookSlug(sources[0].name)}-ocr.zip`
+    : 'ocr-export.zip';
   a.click();
   URL.revokeObjectURL(url);
-  showToast(`Downloaded ocr-export.zip (${used.size} files)`);
+  showToast(`Downloaded ${a.download} (${pageFiles} pages + index/manifest)`);
+}
+
+async function exportZipFromCheckpoint() {
+  if (!pendingResumeJob && !activeJob) {
+    showToast('No checkpoint to export');
+    return;
+  }
+  // Prefer checkpoint files for partial export even if queue empty
+  const job = pendingResumeJob || activeJob;
+  const prev = fileItems;
+  if (!fileItems.some(f => f.pageMarkdowns?.some(Boolean) || f.markdown)) {
+    fileItems = (job.files || []).map(f => ({ ...f, included: true }));
+  }
+  try {
+    await exportZip();
+  } finally {
+    fileItems = prev;
+  }
+}
+
+// ── ZIP import (processed OCR) ────────────────────────────────────────────────
+function normalizeZipPath(path) {
+  return String(path || '').replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function pageIndexFromName(name) {
+  const base = name.split('/').pop() || name;
+  let m = /^p(\d+)\.md$/i.exec(base);
+  if (m) return Number(m[1]);
+  m = /(?:^|[-_])page[-_]?(\d+)\.md$/i.exec(base);
+  if (m) return Number(m[1]);
+  m = /^page_(\d+)\.md$/i.exec(base);
+  if (m) return Number(m[1]);
+  return null;
+}
+
+async function readZipText(zip, path) {
+  const entry = zip.file(path);
+  if (!entry) return null;
+  return entry.async('string');
+}
+
+async function parseManifestGroup(zip, manifestPath, manifest) {
+  const dir = manifestPath.includes('/')
+    ? manifestPath.slice(0, manifestPath.lastIndexOf('/') + 1)
+    : '';
+  const source = manifest.source || (dir ? dir.replace(/\/$/, '') + '.pdf' : 'imported.pdf');
+  const pageCount = Number(manifest.page_count) || (manifest.pages?.length || 0);
+  const pageMarkdowns = [];
+  const pagesMeta = Array.isArray(manifest.pages) ? manifest.pages : [];
+
+  if (pagesMeta.length) {
+    for (const p of pagesMeta) {
+      const pageNum = Number(p.page) || 0;
+      if (pageNum < 1) continue;
+      const rel = p.path || `p${padPageNum(pageNum)}.md`;
+      const full = rel.startsWith(dir) ? rel : dir + rel.replace(/^\.\//, '');
+      const raw = await readZipText(zip, full);
+      if (raw == null) continue;
+      const { body } = stripFrontMatter(raw);
+      pageMarkdowns[pageNum - 1] = body;
+    }
+  } else {
+    // manifest without pages list — scan folder for p###.md
+    for (const path of Object.keys(zip.files)) {
+      const np = normalizeZipPath(path);
+      if (zip.files[path].dir) continue;
+      if (dir && !np.startsWith(dir)) continue;
+      if (!dir && np.includes('/')) continue;
+      const idx = pageIndexFromName(np.slice(dir.length));
+      if (idx == null) continue;
+      const raw = await readZipText(zip, np);
+      if (raw == null) continue;
+      pageMarkdowns[idx - 1] = stripFrontMatter(raw).body;
+    }
+  }
+
+  const saved = pageMarkdowns.filter(md => md != null && md !== '').length;
+  if (!saved) return null;
+  const total = Math.max(pageCount || 0, pageMarkdowns.length, saved);
+  while (pageMarkdowns.length < total) pageMarkdowns.push('');
+  const markdown = pageMarkdowns.filter(Boolean).join('\n\n---\n\n');
+  const done = saved >= total && total > 0;
+  return {
+    id: `f${++_fileIdSeq}`,
+    name: source,
+    size: 0,
+    lastModified: 0,
+    isPDF: total > 1 || /\.pdf$/i.test(source),
+    pages: total,
+    status: done ? 'done' : 'ready',
+    settings: defaultItemSettings(true),
+    analysis: null,
+    pageMarkdowns,
+    pageRaws: [],
+    markdown,
+    rawText: '',
+    error: null,
+    fromZip: true,
+  };
+}
+
+async function parseLooseMarkdownPages(zip) {
+  /** @type {Map<string, {pages: Map<number,string>, source: string}>} */
+  const groups = new Map();
+  for (const path of Object.keys(zip.files)) {
+    const np = normalizeZipPath(path);
+    if (zip.files[path].dir || !np.toLowerCase().endsWith('.md')) continue;
+    if (/(^|\/)(index|readme|manifest)\.md$/i.test(np)) continue;
+    const idx = pageIndexFromName(np);
+    if (idx == null) {
+      // single loose .md without page number → treat as page 1
+      const dir = np.includes('/') ? np.slice(0, np.lastIndexOf('/')) : '';
+      const base = (np.split('/').pop() || 'document').replace(/\.md$/i, '');
+      const key = dir || base;
+      if (!groups.has(key)) groups.set(key, { pages: new Map(), source: `${base}.pdf` });
+      const g = groups.get(key);
+      if (!g.pages.has(1)) {
+        const raw = await readZipText(zip, np);
+        if (raw != null) g.pages.set(1, stripFrontMatter(raw).body);
+      }
+      continue;
+    }
+    const dir = np.includes('/') ? np.slice(0, np.lastIndexOf('/')) : '';
+    const key = dir || '_root';
+    if (!groups.has(key)) {
+      const source = dir
+        ? `${dir.split('/').pop()}.pdf`
+        : 'imported.pdf';
+      groups.set(key, { pages: new Map(), source });
+    }
+    const raw = await readZipText(zip, np);
+    if (raw == null) continue;
+    groups.get(key).pages.set(idx, stripFrontMatter(raw).body);
+  }
+
+  const files = [];
+  for (const [, g] of groups) {
+    if (!g.pages.size) continue;
+    const maxPage = Math.max(...g.pages.keys());
+    const pageMarkdowns = [];
+    for (let i = 1; i <= maxPage; i++) {
+      pageMarkdowns[i - 1] = g.pages.has(i) ? g.pages.get(i) : '';
+    }
+    const saved = pageMarkdowns.filter(Boolean).length;
+    files.push({
+      id: `f${++_fileIdSeq}`,
+      name: g.source,
+      size: 0,
+      lastModified: 0,
+      isPDF: maxPage > 1,
+      pages: maxPage,
+      status: saved >= maxPage ? 'done' : 'ready',
+      settings: defaultItemSettings(maxPage > 1),
+      analysis: null,
+      pageMarkdowns,
+      pageRaws: [],
+      markdown: pageMarkdowns.filter(Boolean).join('\n\n---\n\n'),
+      rawText: '',
+      error: null,
+      fromZip: true,
+    });
+  }
+  return files;
+}
+
+async function parseOcrZip(file) {
+  if (typeof JSZip === 'undefined') throw new Error('JSZip not loaded');
+  const zip = await JSZip.loadAsync(file);
+  const paths = Object.keys(zip.files).map(normalizeZipPath);
+
+  // 1) Checkpoint JSON inside zip
+  for (const path of paths) {
+    if (zip.files[path]?.dir) continue;
+    if (!path.toLowerCase().endsWith('.json')) continue;
+    if (/(^|\/)manifest\.json$/i.test(path)) continue;
+    try {
+      const text = await readZipText(zip, path);
+      const job = JSON.parse(text);
+      if (job && Array.isArray(job.files) && job.files.length) {
+        return { kind: 'checkpoint', job };
+      }
+    } catch { /* not a checkpoint */ }
+  }
+
+  // 2) manifest.json groups (root and/or per-folder)
+  const manifestPaths = paths.filter(p => /(^|\/)manifest\.json$/i.test(p) && !zip.files[p]?.dir);
+  if (manifestPaths.length) {
+    const files = [];
+    for (const mp of manifestPaths) {
+      try {
+        const text = await readZipText(zip, mp);
+        const manifest = JSON.parse(text);
+        const parsed = await parseManifestGroup(zip, mp, manifest);
+        if (parsed) files.push(parsed);
+      } catch (err) {
+        throw new Error(`Invalid manifest at ${mp}: ${err.message}`);
+      }
+    }
+    if (!files.length) throw new Error('manifest.json found but no page markdown files');
+    return { kind: 'manifest', files };
+  }
+
+  // 3) Loose p###.md / *-page-##.md
+  const loose = await parseLooseMarkdownPages(zip);
+  if (!loose.length) {
+    throw new Error('ZIP has no manifest.json, checkpoint JSON, or page .md files (p001.md)');
+  }
+  return { kind: 'loose', files: loose };
+}
+
+async function importOcrZip(file) {
+  try {
+    const parsed = await parseOcrZip(file);
+    let job;
+    if (parsed.kind === 'checkpoint') {
+      job = parsed.job;
+      job.id = job.id || newJobId();
+      job.updatedAt = Date.now();
+      for (const f of job.files || []) {
+        f.fromZip = true;
+        if (f.size == null) f.size = 0;
+      }
+    } else {
+      const files = parsed.files;
+      const allDone = files.every(f => f.status === 'done');
+      job = {
+        id: newJobId(),
+        version: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        status: allDone ? 'done' : 'stopped',
+        mode: currentMode,
+        prompt: document.getElementById('prompt-input')?.value || 'document parsing.',
+        ngramEnabled: document.getElementById('ngram-toggle')?.checked !== false,
+        settings: { ...settings },
+        files,
+        activeFileId: files[0]?.id || null,
+        importedFrom: file.name,
+      };
+    }
+    await idbPutJob(job);
+    hydrateFileItemsFromJob(job, false);
+    renderFileList();
+    if (activeId) await selectFile(activeId);
+    const incomplete = isJobIncomplete(job);
+    if (incomplete) {
+      showResumeBanner(job, { needFiles: true });
+      showToast(`Loaded ${file.name} · ${countSavedPages(job).saved} pages · attach PDF to resume gaps`);
+    } else {
+      hideResumeBanner();
+      pendingResumeJob = null;
+      activeJob = job;
+      document.getElementById('ckpt-dl-btn').disabled = false;
+      showToast(`Loaded ${file.name} · ${countSavedPages(job).saved} pages · browse / re-export`);
+    }
+    setStatus(
+      apiReady ? 'idle' : 'error',
+      `IMPORTED · ${fileItems.length} file${fileItems.length > 1 ? 's' : ''} from ZIP`
+    );
+    syncExportButtons();
+  } catch (err) {
+    console.warn('ZIP import failed:', err);
+    showToast('Invalid OCR ZIP: ' + (err.message || err));
+  }
+}
+
+window.handleZipInput = async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  await importOcrZip(file);
+};
+
+async function resumeFromBanner() {
+  if (!pendingResumeJob) return;
+  const job = pendingResumeJob;
+  if (!fileItems.length) hydrateFileItemsFromJob(job, false);
+  else {
+    // Merge checkpoint markdown into any already-attached items
+    activeJob = job;
+  }
+  const missing = fileItems.filter(f => f.included && !f.file);
+  if (missing.length) {
+    showToast('Re-select the PDF to resume');
+    refreshResumeBanner();
+    document.getElementById('file-input').click();
+    return;
+  }
+  // Restore settings
+  if (job.mode) setMode(job.mode);
+  if (job.prompt != null) document.getElementById('prompt-input').value = job.prompt;
+  if (job.ngramEnabled != null) document.getElementById('ngram-toggle').checked = !!job.ngramEnabled;
+  hideResumeBanner();
+  await startOCR({ resume: true });
+}
+
+async function discardCheckpoint() {
+  const job = pendingResumeJob || activeJob;
+  if (!job) {
+    hideResumeBanner();
+    return;
+  }
+  try { await idbDeleteJob(job.id); } catch (_) { /* ignore */ }
+  if (activeJob?.id === job.id) activeJob = null;
+  hideResumeBanner();
+  showToast('Checkpoint discarded');
+  syncExportButtons();
+}
+
+async function downloadCheckpoint() {
+  let job = activeJob || pendingResumeJob;
+  if (!job && fileItems.some(f => f.pageMarkdowns?.some(Boolean) || f.markdown)) {
+    job = snapshotJobFromItems(isRunning ? 'running' : 'stopped');
+  }
+  if (!job) {
+    showToast('Nothing to download');
+    return;
+  }
+  // Refresh snapshot if we have live items
+  if (fileItems.length) job = snapshotJobFromItems(job.status || 'stopped');
+  const blob = new Blob([JSON.stringify(job, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ocr-checkpoint-${job.id}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded checkpoint JSON');
+}
+
+async function handleCheckpointInput(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const job = JSON.parse(text);
+    if (!job || !Array.isArray(job.files)) throw new Error('Invalid checkpoint file');
+    job.id = job.id || newJobId();
+    job.updatedAt = Date.now();
+    await idbPutJob(job);
+    hydrateFileItemsFromJob(job, false);
+    renderFileList();
+    showResumeBanner(job, { needFiles: true });
+    showToast('Checkpoint loaded · re-select matching files to resume');
+  } catch (err) {
+    showToast('Failed to load checkpoint: ' + err.message);
+  }
 }
 
 function setStatus(type, msg) {

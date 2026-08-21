@@ -30,6 +30,10 @@ RESERVED_INPUT_TOKENS = int(os.environ.get("OCR_RESERVED_INPUT_TOKENS", "4096"))
 DEFAULT_MAX_TOKENS = int(os.environ.get("OCR_MAX_TOKENS", "8192"))
 # Hard ceiling for completions (never == max-model-len). Dense pages may use this.
 MAX_OUTPUT_TOKENS = max(1, MAX_MODEL_LEN - RESERVED_INPUT_TOKENS)
+# Soft cap for /api/analyze uploads (OCR itself streams page images, not the whole book).
+MAX_ANALYZE_BYTES = int(
+    os.environ.get("OCR_MAX_ANALYZE_BYTES", str(512 * 1024 * 1024))
+)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
@@ -131,46 +135,56 @@ def _recommend(
     }
 
 
+def _page_meta(page, page_num: int) -> dict:
+    rect = page.rect
+    w_pt, h_pt = float(rect.width), float(rect.height)
+    w_px_200 = int(round(w_pt * 200 / 72))
+    h_px_200 = int(round(h_pt * 200 / 72))
+    return {
+        "page": page_num,
+        "width_pt": round(w_pt, 2),
+        "height_pt": round(h_pt, 2),
+        "width_in": round(w_pt / 72.0, 3),
+        "height_in": round(h_pt / 72.0, 3),
+        "width_px_at_200dpi": w_px_200,
+        "height_px_at_200dpi": h_px_200,
+        "dpi_native": 72,
+    }
+
+
 def _analyze_pdf(raw: bytes, filename: str) -> dict:
+    """Fast metadata-only inspect: page count + a few sample pages (no full raster)."""
     doc = fitz.open(stream=raw, filetype="pdf")
     try:
-        pages_meta = []
+        pages = int(doc.page_count)
+        if pages < 1:
+            raise ValueError("PDF has no pages")
+
+        # Sample first / middle / last only — never walk every page or extract all images.
+        sample_idxs = sorted({0, min(1, pages - 1), pages // 2, pages - 1})
+        pages_meta: list[dict] = []
         max_edge = 0
         color_modes: set[str] = set()
-        for i, page in enumerate(doc):
-            rect = page.rect
-            w_pt, h_pt = float(rect.width), float(rect.height)
-            # PDF user space is 72 pt/inch
-            w_in, h_in = w_pt / 72.0, h_pt / 72.0
-            w_px_200 = int(round(w_pt * 200 / 72))
-            h_px_200 = int(round(h_pt * 200 / 72))
-            max_edge = max(max_edge, w_px_200, h_px_200)
-            cs = None
-            try:
-                # Sample first image on page if any
-                for img in page.get_images(full=True)[:1]:
-                    xref = img[0]
-                    info = doc.extract_image(xref)
-                    cs = info.get("cs-name") or info.get("colorspace")
-                    break
-            except Exception:  # noqa: BLE001
-                pass
-            if cs:
-                color_modes.add(str(cs))
-            pages_meta.append(
-                {
-                    "page": i + 1,
-                    "width_pt": round(w_pt, 2),
-                    "height_pt": round(h_pt, 2),
-                    "width_in": round(w_in, 3),
-                    "height_in": round(h_in, 3),
-                    "width_px_at_200dpi": w_px_200,
-                    "height_px_at_200dpi": h_px_200,
-                    "dpi_native": 72,
-                }
+        for i in sample_idxs:
+            page = doc[i]
+            meta = _page_meta(page, i + 1)
+            pages_meta.append(meta)
+            max_edge = max(
+                max_edge,
+                meta["width_px_at_200dpi"],
+                meta["height_px_at_200dpi"],
             )
+            if i == 0:
+                try:
+                    for img in page.get_images(full=True)[:1]:
+                        info = doc.extract_image(img[0])
+                        cs = info.get("cs-name") or info.get("colorspace")
+                        if cs:
+                            color_modes.add(str(cs))
+                        break
+                except Exception:  # noqa: BLE001
+                    pass
 
-        pages = len(pages_meta)
         multi = pages > 1
         first = pages_meta[0] if pages_meta else {}
         return {
@@ -187,7 +201,7 @@ def _analyze_pdf(raw: bytes, filename: str) -> dict:
             "dpi": 72,
             "dpi_note": "PDF native is 72 pt/inch; UI renders pages at ~200 DPI for OCR",
             "color_mode": ", ".join(sorted(color_modes)) if color_modes else "mixed/unknown",
-            "page_details": pages_meta[:20],
+            "page_details": pages_meta,
             "recommendations": _recommend(
                 multi_page=multi,
                 pages=pages,
@@ -329,20 +343,40 @@ async def gpu_status():
     return {"ok": True, "gpus": gpus, **primary}
 
 
+async def _read_upload_capped(upload: UploadFile, max_bytes: int) -> bytes:
+    """Read an upload with a hard size cap; raise ValueError if exceeded."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError(
+                f"File too large for analyze (max {max_bytes // (1024 * 1024)} MB). "
+                "You can still Start OCR — pages are processed one at a time."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @app.post("/api/analyze")
 async def analyze(file: UploadFile = File(...)):
-    """Inspect uploaded PDF/image and recommend OCR settings."""
-    raw = await file.read()
+    """Inspect uploaded PDF/image and recommend OCR settings (lightweight)."""
     filename = file.filename or "upload"
     mime = file.content_type or mimetypes.guess_type(filename)[0]
     is_pdf = (mime == "application/pdf") or filename.lower().endswith(".pdf")
 
     try:
+        raw = await _read_upload_capped(file, MAX_ANALYZE_BYTES)
         if is_pdf:
             result = _analyze_pdf(raw, filename)
         else:
             result = _analyze_image(raw, filename, mime)
         return result
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=413)
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 

@@ -29,9 +29,9 @@ services:
       - --no-enable-prefix-caching
       - --mm-processor-cache-gb
       - "0"
-      # RTX 5080 16 GB + desktop (~2 GB): 0.92 OOMs; do not raise these.
+      # RTX 5080 16 GB + desktop (~2GB+): 0.85 OOMs when free < ~13.2 GiB; keep 0.75 for headroom.
       - --gpu-memory-utilization
-      - "0.85"
+      - "0.75"
       - --max-model-len
       - "16384"
       - --host
